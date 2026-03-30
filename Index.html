@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Site Plan Builder — Walla Walla County Community Development</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
+  <script src="config.js?v=20260330e"></script>
+  <script src="https://js.arcgis.com/4.30/"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow: hidden;
+    }
+    #app { display: flex; flex-direction: column; height: 100vh; }
+    #header {
+      height: 56px;
+      background: #1a3a6b;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      border-bottom: 4px solid #c8a84b;
+    }
+    #titlewrap { flex: 1; min-width: 0; }
+    #agency { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .7; }
+    #title {
+      font-size: 15px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hdr-btn {
+      border: 1px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      border-radius: 4px;
+      padding: 7px 10px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .hdr-btn:hover { background: rgba(255,255,255,.18); }
+    .hdr-btn.gold {
+      background: #c8a84b;
+      color: #1a1f2e;
+      border-color: #c8a84b;
+      font-weight: 700;
+    }
+
+    #main { flex: 1; display: flex; min-height: 0; }
+
+    #sidebar {
+      width: 240px;
+      background: #fff;
+      border-right: 1px solid #d7dce3;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .section-head {
+      background: #1a3a6b;
+      color: #fff;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      padding: 7px 12px;
+      font-weight: 700;
+    }
+    .section-body {
+      padding: 8px 10px;
+      border-bottom: 1px solid #eef1f4;
+    }
+    .tool-btn {
+      width: 100%;
+      margin-bottom: 6px;
+      padding: 8px 10px;
+      text-align: left;
+      border-radius: 4px;
+      border: 1px solid #d5dbe3;
+      background: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .tool-btn:hover { background: #f5f7fa; }
+    .tool-btn.active { background: #deeeff; border-color: #1a3a6b; color: #1a3a6b; }
+
+    .feature-type-btn.active { color: #fff; font-weight: 700; }
+    #btn-type-proposed.active { background: #d35d2d; border-color: #8f3a18; }
+    #btn-type-existing.active { background: #2b6f3e; border-color: #1f4f2c; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+    }
+
+    #map-wrap { flex: 1; position: relative; min-width: 0; }
+    #viewDiv { width: 100%; height: 100%; }
+
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,.92);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    #loading.hidden { display: none; }
+
+    #parcel-badge, #measure-box {
+      position: absolute;
+      left: 12px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid #d5dbe3;
+      border-left: 3px solid #1a3a6b;
+      border-radius: 5px;
+      z-index: 10;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+    }
+    #parcel-badge {
+      top: 12px;
+      padding: 8px 10px;
+      max-width: 320px;
+      display: none;
+    }
+    #measure-box {
+      bottom: 40px;
+      padding: 8px 10px;
+      min-width: 200px;
+      display: none;
+    }
+
+    .pb-addr { font-size: 12px; font-weight: 700; color: #1a3a6b; }
+    .pb-sub { font-size: 11px; color: #666; margin-top: 2px; }
+
+    .ms-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #777;
+      letter-spacing: .05em;
+    }
+    .ms-main { font-size: 17px; font-weight: 700; color: #1a3a6b; }
+    .ms-sub { font-size: 11px; color: #555; }
+
+    #statusbar {
+      height: 28px;
+      background: #f1f3f6;
+      border-top: 1px solid #d7dce3;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      color: #6b7280;
+      font-size: 11px;
+    }
+    #statusdot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div id="titlewrap">
+      <div id="agency"></div>
+      <div id="title"></div>
+    </div>
+    <button class="hdr-btn" onclick="deleteSelected()">Delete selected</button>
+    <button class="hdr-btn" onclick="clearAll()">Clear all</button>
+    <button class="hdr-btn gold" onclick="printPlan()">Print / Save PDF</button>
+  </div>
+
+  <div id="main">
+    <div id="sidebar">
+      <div class="section-head">Draw tools</div>
+      <div class="section-body">
+        <button class="tool-btn draw-tool-btn" id="btn-rectangle" onclick="startDraw('rectangle')">Draw rectangle</button>
+        <button class="tool-btn draw-tool-btn" id="btn-polygon" onclick="startDraw('polygon')">Draw polygon</button>
+        <button class="tool-btn draw-tool-btn" id="btn-polyline" onclick="startDraw('polyline')">Draw line</button>
+        <button class="tool-btn draw-tool-btn" id="btn-text" onclick="startTextTool()">Add text</button>
+        <button class="tool-btn draw-tool-btn" id="btn-callout" onclick="startCalloutTool()">Add callout</button>
+        <input id="text-input" type="text" placeholder="Enter text" style="width:100%;margin-top:6px;padding:6px 8px;border:1px solid #d5dbe3;border-radius:4px;font:inherit;font-size:12px;" />
+      </div>
+
+      <div class="section-head">Custom shape</div>
+      <div class="section-body">
+        <button class="tool-btn draw-tool-btn" id="btn-custom-rectangle" onclick="startCustomRectangleTool()">Add shape</button>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+          <input id="custom-rect-length" type="number" min="1" step="1" value="15" style="width:72px;padding:6px;border:1px solid #d5dbe3;border-radius:4px;font:inherit;font-size:12px;" />
+          <span style="font-size:12px;color:#555;">x</span>
+          <input id="custom-rect-width" type="number" min="1" step="1" value="20" style="width:72px;padding:6px;border:1px solid #d5dbe3;border-radius:4px;font:inherit;font-size:12px;" />
+          <span style="font-size:12px;color:#555;">ft</span>
+        </div>
+      </div>
+
+      <div class="section-head">Feature type</div>
+      <div class="section-body">
+        <button class="tool-btn feature-type-btn active" id="btn-type-proposed" onclick="setFeatureType('proposed')">Proposed</button>
+        <button class="tool-btn feature-type-btn" id="btn-type-existing" onclick="setFeatureType('existing')">Existing</button>
+      </div>
+
+      <div class="section-head">Legend</div>
+      <div class="section-body" style="font-size:12px; line-height:1.5; color:#555;">
+        <div><span style="display:inline-block;width:12px;height:12px;background:#d35d2d;border:1px solid #8f3a18;margin-right:8px;vertical-align:middle;"></span>Proposed</div>
+        <div><span style="display:inline-block;width:12px;height:12px;background:#2b6f3e;border:1px solid #1f4f2c;margin-right:8px;vertical-align:middle;"></span>Existing</div>
+      </div>
+
+      <div class="section-head">Editing</div>
+      <div class="section-body">
+        <div class="toggle-row">
+          <label for="snap-toggle">Snapping on</label>
+          <input type="checkbox" id="snap-toggle" checked onchange="toggleSnapping(this.checked)" />
+        </div>
+      </div>
+
+      <div class="section-head">Instructions</div>
+      <div class="section-body" style="font-size:12px; line-height:1.45; color:#555;">
+        Placeholder, needs to be added after the following, 1. Figure out if it's going to be standalone or embedded, 2. PDF or have it on here? 3. Meet with environmental health to figure out what they would need 4. get visuals to pop up, such as setbacks, critical areas, etc 5. revamp print-out
+      </div>
+    </div>
+
+    <div id="map-wrap">
+      <div id="viewDiv"></div>
+
+      <div id="loading">
+        <div style="font-size:14px;font-weight:700;color:#1a3a6b;">Loading your parcel…</div>
+        <div style="font-size:12px;color:#777;">Please wait</div>
+      </div>
+
+      <div id="parcel-badge">
+        <div class="pb-addr" id="pb-addr">—</div>
+        <div class="pb-sub" id="pb-owner"></div>
+        <div class="pb-sub" id="pb-geo"></div>
+      </div>
+
+      <div id="measure-box">
+        <div class="ms-label" id="ms-label">Selected shape</div>
+        <div class="ms-main" id="ms-main">—</div>
+        <div class="ms-sub" id="ms-sub">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusbar">
+    <div id="statusdot"></div>
+    <div id="statusmsg">Initializing…</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const geoParam = (params.get('geo') || '').trim();
+  const addrParam = (params.get('addr') || '').trim();
+  const ownParam = (params.get('own') || '').trim();
+
+  function setStatus(msg, ok) {
+    document.getElementById('statusmsg').textContent = msg;
+    document.getElementById('statusdot').style.background =
+      ok === false ? '#ef4444' : (ok === true ? '#22c55e' : '#9ca3af');
+  }
+
+  require([
+    'esri/Map',
+    'esri/Basemap',
+    'esri/views/MapView',
+    'esri/layers/FeatureLayer',
+    'esri/layers/GraphicsLayer',
+    'esri/Graphic',
+    'esri/geometry/geometryEngine',
+    'esri/geometry/Polygon',
+    'esri/widgets/Sketch',
+    'esri/widgets/Home',
+    'esri/widgets/ScaleBar'
+  ], function (
+    EsriMap,
+    Basemap,
+    MapView,
+    FeatureLayer,
+    GraphicsLayer,
+    Graphic,
+    geometryEngine,
+    Polygon,
+    Sketch,
+    Home,
+    ScaleBar
+  ) {
+    const cfg = window.SitePlanConfig;
+    if (!cfg || !cfg.layers || !cfg.layers.parcels) {
+      setStatus('Configuration failed to load.', false);
+      return;
+    }
+
+    document.getElementById('agency').textContent = cfg.branding.countyName;
+    document.getElementById('title').textContent = cfg.branding.agencyName + ' · ' + cfg.branding.toolTitle;
+
+    const pf = cfg.layers.parcels.popupFields;
+    let selectedParcelGeometry = null;
+    let prePrintViewpoint = null;
+    let currentFeatureType = 'proposed';
+    let activeCalloutPreview = null;
+
+    const lineLabelMap = new Map();
+
+    const parcelLayer = new FeatureLayer({
+      url: cfg.layers.parcels.url,
+      outFields: ['*'],
+      popupEnabled: false,
+      renderer: {
+        type: 'simple',
+        symbol: {
+          type: 'simple-fill',
+          color: [26, 58, 107, 0.03],
+          outline: { type: 'simple-line', color: [26, 58, 107, 0.85], width: 1.5 }
+        }
+      }
+    });
+
+    const drawLayer = new GraphicsLayer({ title: 'Drawings' });
+    const labelLayer = new GraphicsLayer({ title: 'Labels', listMode: 'hide' });
+    const previewLayer = new GraphicsLayer({ title: 'Preview', listMode: 'hide' });
+    const highlightLayer = new GraphicsLayer({ title: 'Selected Parcel', listMode: 'hide' });
+
+    const usgsTopoBasemap = new Basemap({
+      portalItem: {
+        id: '6d9fa6d159ae4a1f80b9e296ed300767'
+      }
+    });
+
+    const map = new EsriMap({
+      basemap: usgsTopoBasemap,
+      layers: [parcelLayer, highlightLayer, drawLayer, labelLayer, previewLayer]
+    });
+
+    const view = new MapView({
+      container: 'viewDiv',
+      map: map,
+      ui: { components: ['zoom'] },
+      popup: { autoOpenEnabled: false },
+      center: cfg.map.center,
+      zoom: 12
+    });
+
+    view.ui.add(new Home({ view }), 'top-left');
+    view.ui.add(new ScaleBar({ view, unit: 'dual' }), 'bottom-right');
+
+    const sketch = new Sketch({
+      view,
+      layer: drawLayer,
+      updateOnGraphicClick: true,
+      creationMode: 'update',
+      defaultUpdateOptions: {
+        tool: 'transform',
+        enableRotation: true,
+        enableScaling: true,
+        preserveAspectRatio: false,
+        toggleToolOnClick: false
+      },
+      availableCreateTools: ['rectangle', 'polygon', 'polyline'],
+      snappingOptions: {
+        enabled: true,
+        selfEnabled: true,
+        featureEnabled: true,
+        featureSources: []
+      }
+    });
+
+    function refreshSnapSources() {
+      sketch.snappingOptions.featureSources = [
+        { layer: drawLayer, enabled: true },
+        { layer: parcelLayer, enabled: true },
+        { layer: highlightLayer, enabled: true }
+      ];
+    }
+
+    function featurePalette(type) {
+      if (type === 'existing') {
+        return {
+          fill: [43, 111, 62, 0.16],
+          line: [43, 111, 62, 1],
+          lineDark: [31, 79, 44, 1]
+        };
+      }
+      return {
+        fill: [211, 93, 45, 0.16],
+        line: [211, 93, 45, 1],
+        lineDark: [143, 58, 24, 1]
+      };
+    }
+
+    function polygonSymbol(type) {
+      const p = featurePalette(type || currentFeatureType);
+      return {
+        type: 'simple-fill',
+        color: p.fill,
+        outline: { type: 'simple-line', color: p.line, width: 3 }
+      };
+    }
+
+    function lineSymbol() {
+      return {
+        type: 'simple-line',
+        color: [0, 0, 0, 1],
+        width: 2,
+        style: 'short-dash'
+      };
+    }
+
+    function pointSymbol(type) {
+      const p = featurePalette(type || currentFeatureType);
+      return {
+        type: 'simple-marker',
+        style: 'circle',
+        color: p.line,
+        size: 12,
+        outline: { color: [255, 255, 255, 1], width: 1.5 }
+      };
+    }
+
+    function textSymbol(text, size) {
+      return {
+        type: 'text',
+        text: text,
+        color: [255, 255, 255, 1],
+        haloColor: [0, 0, 0, 1],
+        haloSize: 3,
+        font: { size: size || 12, weight: 'bold', family: 'Segoe UI, Arial, sans-serif' },
+        horizontalAlignment: 'center',
+        verticalAlignment: 'middle'
+      };
+    }
+
+    function calloutLineSymbol() {
+      return { type: 'simple-line', color: [0, 0, 0, 1], width: 1.5 };
+    }
+
+    function calloutTextSymbol(text) {
+      return {
+        type: 'text',
+        text: text,
+        color: [255, 255, 255, 1],
+        haloColor: [0, 0, 0, 1],
+        haloSize: 3,
+        font: { size: 13, weight: 'bold', family: 'Segoe UI, Arial, sans-serif' },
+        horizontalAlignment: 'left',
+        verticalAlignment: 'bottom',
+        xoffset: 8,
+        yoffset: 8
+      };
+    }
+
+    function previewPointSymbol() {
+      return {
+        type: 'simple-marker',
+        style: 'circle',
+        color: [211, 93, 45, 1],
+        size: 9,
+        outline: { color: [0, 0, 0, 0.5], width: 1 }
+      };
+    }
+
+    function getPrintTextSize(scale) {
+      if (!scale) return 10;
+      if (scale <= 1200) return 11;
+      if (scale <= 2500) return 10;
+      if (scale <= 5000) return 9;
+      return 8;
+    }
+
+    function getPrintHaloSize(scale) {
+      if (!scale) return 2;
+      if (scale <= 2500) return 2.25;
+      return 1.75;
+    }
+
+    function getTextGraphics() {
+      return drawLayer.graphics.toArray().concat(labelLayer.graphics.toArray()).filter(function (g) {
+        return g && g.geometry && g.geometry.type === 'point' && g.symbol && g.symbol.type === 'text';
+      });
+    }
+
+    function applyPrintTextStyles() {
+      const scale = view.scale;
+      const size = getPrintTextSize(scale);
+      const halo = getPrintHaloSize(scale);
+      const originals = [];
+
+      getTextGraphics().forEach(function (g) {
+        originals.push({
+          graphic: g,
+          symbol: g.symbol.clone ? g.symbol.clone() : JSON.parse(JSON.stringify(g.symbol))
+        });
+
+        const old = g.symbol;
+        g.symbol = {
+          type: 'text',
+          text: old.text,
+          color: [255, 255, 255, 1],
+          haloColor: [0, 0, 0, 1],
+          haloSize: halo,
+          font: {
+            size: size,
+            weight: (old.font && old.font.weight) || 'bold',
+            family: (old.font && old.font.family) || 'Segoe UI, Arial, sans-serif'
+          },
+          horizontalAlignment: old.horizontalAlignment || 'center',
+          verticalAlignment: old.verticalAlignment || 'middle',
+          xoffset: old.xoffset || 0,
+          yoffset: old.yoffset || 0
+        };
+      });
+
+      return originals;
+    }
+
+    function restoreTextStyles(originals) {
+      (originals || []).forEach(function (item) {
+        if (item && item.graphic && item.symbol) item.graphic.symbol = item.symbol;
+      });
+    }
+
+    function applyGraphicSymbol(g) {
+      if (!g || !g.geometry) return;
+      const type = g.__featureType || currentFeatureType;
+      g.__featureType = type;
+
+      if (g.geometry.type === 'polyline') g.symbol = lineSymbol();
+      else if (g.geometry.type === 'point' && (!g.symbol || g.symbol.type !== 'text')) g.symbol = pointSymbol(type);
+      else if (g.geometry.type !== 'point') g.symbol = polygonSymbol(type);
+    }
+
+    function applyActiveSketchSymbols() {
+      sketch.viewModel.polygonSymbol = polygonSymbol(currentFeatureType);
+      sketch.viewModel.polylineSymbol = lineSymbol();
+      sketch.viewModel.pointSymbol = pointSymbol(currentFeatureType);
+    }
+
+    function showMeasure(label, main, sub) {
+      document.getElementById('ms-label').textContent = label;
+      document.getElementById('ms-main').textContent = main;
+      document.getElementById('ms-sub').textContent = sub || '';
+      document.getElementById('measure-box').style.display = 'block';
+    }
+
+    function createOrUpdateLineLabel(graphic) {
+      if (!graphic || !graphic.geometry || graphic.geometry.type !== 'polyline') return;
+
+      const id = graphic.__sitePlanId || graphic.uid || ('line_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+      graphic.__sitePlanId = id;
+
+      const length = Math.abs(geometryEngine.planarLength(graphic.geometry, 'feet')).toFixed(1) + "'";
+      const midpoint = graphic.geometry.extent.center;
+
+      let existing = lineLabelMap.get(id);
+      if (existing) {
+        existing.geometry = midpoint;
+        existing.symbol.text = length;
+      } else {
+        existing = new Graphic({
+          geometry: midpoint,
+          symbol: {
+            type: 'text',
+            text: length,
+            color: [255, 255, 255, 1],
+            haloColor: [0, 0, 0, 1],
+            haloSize: 3,
+            font: { size: 12, weight: 'bold', family: 'Segoe UI, Arial, sans-serif' },
+            yoffset: -10
+          }
+        });
+        labelLayer.add(existing);
+        lineLabelMap.set(id, existing);
+      }
+    }
+
+    function removeAssociatedLabels(graphic) {
+      if (!graphic) return;
+      const id = graphic.__sitePlanId || graphic.uid;
+
+      const lineLabel = lineLabelMap.get(id);
+      if (lineLabel) {
+        labelLayer.remove(lineLabel);
+        lineLabelMap.delete(id);
+      }
+
+      if (graphic.__calloutId) {
+        const lbl = labelLayer.graphics.find(function (g) {
+          return g.__calloutId === graphic.__calloutId && g.__calloutRole === 'text';
+        });
+        if (lbl) labelLayer.remove(lbl);
+      }
+    }
+
+    function updateCalloutGraphics(calloutId) {
+      const leader = drawLayer.graphics.find(function (g) { return g.__calloutId === calloutId && g.__calloutRole === 'leader'; });
+      const target = drawLayer.graphics.find(function (g) { return g.__calloutId === calloutId && g.__calloutRole === 'target'; });
+      const anchor = drawLayer.graphics.find(function (g) { return g.__calloutId === calloutId && g.__calloutRole === 'anchor'; });
+      const label = labelLayer.graphics.find(function (g) { return g.__calloutId === calloutId && g.__calloutRole === 'text'; });
+
+      if (!leader || !target || !anchor || !label) return;
+
+      leader.geometry = {
+        type: 'polyline',
+        spatialReference: anchor.geometry.spatialReference,
+        paths: [[[target.geometry.x, target.geometry.y], [anchor.geometry.x, anchor.geometry.y]]]
+      };
+
+      label.geometry = anchor.geometry.clone ? anchor.geometry.clone() : anchor.geometry;
+    }
+
+    window.setFeatureType = function (type) {
+      currentFeatureType = type;
+      document.querySelectorAll('[id^="btn-type-"]').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+      const btn = document.getElementById('btn-type-' + type);
+      if (btn) btn.classList.add('active');
+      applyActiveSketchSymbols();
+      setStatus('Feature type set to ' + type + '. New polygons, shapes, and text will use this color.');
+    };
+
+    window.startDraw = function (tool) {
+      clearCalloutPreview();
+      document.querySelectorAll('.draw-tool-btn').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+      const btn = document.getElementById('btn-' + tool);
+      if (btn) btn.classList.add('active');
+      if (sketch.state !== 'idle') sketch.cancel();
+      sketch.create(tool);
+      setStatus('Click to place. Double-click to finish shape. Escape to cancel.');
+    };
+
+    window.startTextTool = function () {
+      clearCalloutPreview();
+      document.querySelectorAll('.draw-tool-btn').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+
+      const btn = document.getElementById('btn-text');
+      if (btn) btn.classList.add('active');
+      if (sketch.state !== 'idle') sketch.cancel();
+
+      const textInput = document.getElementById('text-input');
+      const text = textInput ? textInput.value : '';
+
+      if (!text || !text.trim()) {
+        setStatus('Enter text in the box first.', false);
+        if (btn) btn.classList.remove('active');
+        return;
+      }
+
+      const clickHandle = view.on('click', function (event) {
+        clickHandle.remove();
+
+        const g = new Graphic({
+          geometry: event.mapPoint,
+          symbol: textSymbol(text.trim(), 12)
+        });
+        g.__featureType = currentFeatureType;
+        drawLayer.add(g);
+
+        sketch.update([g], { tool: 'move', toggleToolOnClick: false });
+
+        if (textInput) textInput.value = '';
+        if (btn) btn.classList.remove('active');
+        setStatus('Text label placed.');
+      });
+
+      setStatus('Click on the map to place the text label.');
+    };
+
+    function clearCalloutPreview() {
+      previewLayer.removeAll();
+      if (activeCalloutPreview && activeCalloutPreview.moveHandle) {
+        activeCalloutPreview.moveHandle.remove();
+      }
+      activeCalloutPreview = null;
+    }
+
+    window.startCalloutTool = function () {
+      clearCalloutPreview();
+      document.querySelectorAll('.draw-tool-btn').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+
+      const btn = document.getElementById('btn-callout');
+      if (btn) btn.classList.add('active');
+      if (sketch.state !== 'idle') sketch.cancel();
+
+      const textInput = document.getElementById('text-input');
+      const text = textInput ? textInput.value : '';
+
+      if (!text || !text.trim()) {
+        setStatus('Enter text in the box first.', false);
+        if (btn) btn.classList.remove('active');
+        return;
+      }
+
+      let targetPoint = null;
+
+      const clickHandle = view.on('click', function (event) {
+        if (!targetPoint) {
+          targetPoint = event.mapPoint;
+
+          const previewLeader = new Graphic({
+            geometry: {
+              type: 'polyline',
+              spatialReference: targetPoint.spatialReference,
+              paths: [[[targetPoint.x, targetPoint.y], [targetPoint.x, targetPoint.y]]]
+            },
+            symbol: calloutLineSymbol()
+          });
+
+          const previewPoint = new Graphic({
+            geometry: targetPoint,
+            symbol: previewPointSymbol()
+          });
+
+          previewLayer.addMany([previewLeader, previewPoint]);
+
+          const moveHandle = view.on('pointer-move', function (moveEvent) {
+            const mapPoint = view.toMap({ x: moveEvent.x, y: moveEvent.y });
+            if (!mapPoint) return;
+
+            previewLeader.geometry = {
+              type: 'polyline',
+              spatialReference: targetPoint.spatialReference,
+              paths: [[[targetPoint.x, targetPoint.y], [mapPoint.x, mapPoint.y]]]
+            };
+
+            previewPoint.geometry = mapPoint;
+          });
+
+          activeCalloutPreview = { moveHandle: moveHandle };
+          setStatus('Now click where the callout text should be placed.');
+          return;
+        }
+
+        const labelPoint = event.mapPoint;
+        clickHandle.remove();
+        clearCalloutPreview();
+
+        const calloutId = 'callout_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+        const leader = new Graphic({
+          geometry: {
+            type: 'polyline',
+            spatialReference: labelPoint.spatialReference,
+            paths: [[[targetPoint.x, targetPoint.y], [labelPoint.x, labelPoint.y]]]
+          },
+          symbol: calloutLineSymbol()
+        });
+        leader.__calloutId = calloutId;
+        leader.__calloutRole = 'leader';
+
+        const targetMarker = new Graphic({
+          geometry: targetPoint,
+          symbol: {
+            type: 'simple-marker',
+            style: 'circle',
+            size: 8,
+            color: [0, 0, 0, 0.01],
+            outline: { color: [0, 0, 0, 0], width: 0 }
+          }
+        });
+        targetMarker.__calloutId = calloutId;
+        targetMarker.__calloutRole = 'target';
+
+        const anchorMarker = new Graphic({
+          geometry: labelPoint,
+          symbol: {
+            type: 'simple-marker',
+            style: 'circle',
+            size: 8,
+            color: [0, 0, 0, 0.01],
+            outline: { color: [0, 0, 0, 0], width: 0 }
+          }
+        });
+        anchorMarker.__calloutId = calloutId;
+        anchorMarker.__calloutRole = 'anchor';
+
+        const label = new Graphic({
+          geometry: labelPoint,
+          symbol: calloutTextSymbol(text.trim())
+        });
+        label.__calloutId = calloutId;
+        label.__calloutRole = 'text';
+
+        drawLayer.addMany([leader, targetMarker, anchorMarker]);
+        labelLayer.add(label);
+
+        sketch.update([targetMarker, anchorMarker], { tool: 'move', toggleToolOnClick: false });
+
+        if (textInput) textInput.value = '';
+        if (btn) btn.classList.remove('active');
+        setStatus('Callout placed.');
+      });
+
+      setStatus('Click the point you want the callout to reference.');
+    };
+
+    window.startCustomRectangleTool = function () {
+      clearCalloutPreview();
+      document.querySelectorAll('.draw-tool-btn').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+
+      const btn = document.getElementById('btn-custom-rectangle');
+      if (btn) btn.classList.add('active');
+      if (sketch.state !== 'idle') sketch.cancel();
+
+      const lengthInput = document.getElementById('custom-rect-length');
+      const widthInput = document.getElementById('custom-rect-width');
+      const length = parseFloat(lengthInput.value);
+      const width = parseFloat(widthInput.value);
+
+      if (!isFinite(length) || !isFinite(width) || length <= 0 || width <= 0) {
+        setStatus('Enter valid length and width values first.', false);
+        if (btn) btn.classList.remove('active');
+        return;
+      }
+
+      const clickHandle = view.on('click', function (event) {
+        clickHandle.remove();
+
+        const center = event.mapPoint;
+        if (!center) {
+          setStatus('Could not place custom shape.', false);
+          if (btn) btn.classList.remove('active');
+          return;
+        }
+
+        const feetToMeters = 0.3048;
+        const halfL = (length * feetToMeters) / 2;
+        const halfW = (width * feetToMeters) / 2;
+
+        const x = center.x;
+        const y = center.y;
+        const sr = center.spatialReference;
+
+        const rect = new Polygon({
+          spatialReference: sr,
+          rings: [[
+            [x - halfL, y - halfW],
+            [x + halfL, y - halfW],
+            [x + halfL, y + halfW],
+            [x - halfL, y + halfW],
+            [x - halfL, y - halfW]
+          ]]
+        });
+
+        const g = new Graphic({ geometry: rect });
+        g.__featureType = currentFeatureType;
+        g.__isCustomShape = true;
+        g.__sitePlanId = 'rect_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+        applyGraphicSymbol(g);
+        drawLayer.add(g);
+
+        sketch.update([g], { tool: 'transform', toggleToolOnClick: false });
+
+        const sq = Math.abs(geometryEngine.planarArea(rect, 'square-feet'));
+        showMeasure('Selected shape', Math.round(sq).toLocaleString() + ' sq ft', (sq / 43560).toFixed(3) + ' acres');
+
+        if (lengthInput) lengthInput.value = '';
+        if (widthInput) widthInput.value = '';
+        if (btn) btn.classList.remove('active');
+
+        setStatus('Custom shape placed. You can move, rotate, or resize it.');
+      });
+
+      setStatus('Click on the map to place the custom shape.');
+    };
+
+    window.toggleSnapping = function (enabled) {
+      sketch.snappingOptions.enabled = enabled;
+      sketch.snappingOptions.selfEnabled = enabled;
+      sketch.snappingOptions.featureEnabled = enabled;
+      refreshSnapSources();
+      setStatus(enabled ? 'Snapping enabled.' : 'Snapping disabled.');
+    };
+
+    window.deleteSelected = function () {
+      if (sketch.updateGraphics && sketch.updateGraphics.length) {
+        sketch.delete();
+      } else {
+        setStatus('Click an item to select it first.');
+      }
+    };
+
+    window.clearAll = function () {
+      clearCalloutPreview();
+      sketch.cancel();
+      drawLayer.removeAll();
+      labelLayer.removeAll();
+      previewLayer.removeAll();
+      lineLabelMap.clear();
+      document.getElementById('measure-box').style.display = 'none';
+      setStatus('All items cleared.');
+    };
+
+    sketch.on('create', function (ev) {
+      if (ev.state === 'complete') {
+        const g = ev.graphic;
+        applyGraphicSymbol(g);
+
+        if (g.geometry.type === 'polygon') {
+          const sq = Math.abs(geometryEngine.planarArea(g.geometry, 'square-feet'));
+          showMeasure('Selected shape', Math.round(sq).toLocaleString() + ' sq ft', (sq / 43560).toFixed(3) + ' acres');
+        } else if (g.geometry.type === 'polyline') {
+          createOrUpdateLineLabel(g);
+          const len = Math.abs(geometryEngine.planarLength(g.geometry, 'feet'));
+          showMeasure('Selected line', len.toFixed(1) + ' ft', 'Measured length');
+        }
+
+        setStatus('Shape placed. Click to select and edit.');
+      }
+    });
+
+    sketch.on('update', function (ev) {
+      if (ev.graphics && ev.graphics.length) {
+        const g = ev.graphics[0];
+
+        if (g.__calloutId) {
+          updateCalloutGraphics(g.__calloutId);
+        }
+
+        if (g.geometry.type === 'polygon') {
+          const sq = Math.abs(geometryEngine.planarArea(g.geometry, 'square-feet'));
+          showMeasure('Selected shape', Math.round(sq).toLocaleString() + ' sq ft', (sq / 43560).toFixed(3) + ' acres');
+        } else if (g.geometry.type === 'polyline') {
+          createOrUpdateLineLabel(g);
+          const len = Math.abs(geometryEngine.planarLength(g.geometry, 'feet'));
+          showMeasure('Selected line', len.toFixed(1) + ' ft', 'Measured length');
+        }
+      }
+    });
+
+    sketch.on('delete', function (ev) {
+      ev.graphics.forEach(function (g) {
+        removeAssociatedLabels(g);
+
+        if (g.__calloutId) {
+          const related = drawLayer.graphics.filter(function (x) {
+            return x.__calloutId === g.__calloutId;
+          }).toArray();
+
+          related.forEach(function (x) {
+            if (x !== g) drawLayer.remove(x);
+          });
+
+          const lbl = labelLayer.graphics.find(function (x) {
+            return x.__calloutId === g.__calloutId && x.__calloutRole === 'text';
+          });
+          if (lbl) labelLayer.remove(lbl);
+        }
+      });
+
+      document.getElementById('measure-box').style.display = 'none';
+      setStatus('Deleted.');
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        clearCalloutPreview();
+        if (sketch.state !== 'idle') sketch.cancel();
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && sketch.updateGraphics && sketch.updateGraphics.length) {
+        sketch.delete();
+      }
+    });
+
+    window.printPlan = function () {
+      setStatus('Preparing printable map image...');
+      prePrintViewpoint = view.viewpoint ? view.viewpoint.clone() : null;
+
+      function openPrintWindow(dataUrl) {
+        const geo = geoParam || '—';
+        const addr = document.getElementById('pb-addr').textContent || 'Address not on file';
+        const dt = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const printHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Site Plan Print</title>
+<style>
+@page { size: letter landscape; margin: 0.25in; }
+html,body{margin:0;padding:0;background:#fff;font-family:'Segoe UI',Arial,sans-serif;}
+#sheet{position:relative;width:11in;height:8.5in;margin:0 auto;background:#fff;}
+#frame{position:absolute;top:.22in;left:.22in;right:.22in;bottom:.22in;border:2px solid #000;box-sizing:border-box;}
+#map-image{
+  position:absolute;
+  top:.40in;
+  left:.40in;
+  right:.40in;
+  bottom:.40in;
+  width:calc(100% - .80in);
+  height:calc(100% - .80in);
+  object-fit:contain;
+  object-position:center center;
+  background:#fff;
+}
+#title-block{
+  position:absolute;
+  right:.40in;
+  bottom:.32in;
+  width:2.70in;
+  min-height:.78in;
+  border:1px solid #000;
+  background:#fff;
+  padding:.07in .09in;
+  font-size:8.5px;
+  line-height:1.28;
+  box-sizing:border-box;
+}
+#title-block .ptb-title{font-weight:700;font-size:9.5px;margin-bottom:4px;}
+#title-block .ptb-row{margin-bottom:2px;}
+</style>
+</head>
+<body>
+<div id="sheet">
+  <div id="frame"></div>
+  <img id="map-image" src="${dataUrl}" alt="Printable site plan map">
+  <div id="title-block">
+    <div class="ptb-title">Walla Walla County Community Development</div>
+    <div class="ptb-row"><strong>Parcel:</strong> ${geo}</div>
+    <div class="ptb-row"><strong>Address:</strong> ${addr}</div>
+    <div class="ptb-row"><strong>Date:</strong> ${dt}</div>
+  </div>
+</div>
+<script>
+window.onload=function(){setTimeout(function(){window.focus();window.print();},300)};
+window.onafterprint=function(){setTimeout(function(){window.close();},150)};
+<\/script>
+</body>
+</html>`;
+
+        const printWin = window.open('', '_blank', 'width=1200,height=900');
+        if (!printWin) {
+          setStatus('Pop-up blocked. Allow pop-ups and try again.', false);
+          return;
+        }
+
+        printWin.document.open();
+        printWin.document.write(printHtml);
+        printWin.document.close();
+        setStatus('Print window opened.', true);
+      }
+
+      function captureAndOpen() {
+        const originalTextStyles = applyPrintTextStyles();
+
+        view.takeScreenshot({ format: 'png', quality: 100, width: 2200, height: 1400 })
+          .then(function (result) {
+            openPrintWindow(result.dataUrl);
+          })
+          .catch(function (err) {
+            console.error(err);
+            setStatus('Screenshot capture failed.', false);
+          })
+          .finally(function () {
+            restoreTextStyles(originalTextStyles);
+            if (prePrintViewpoint) {
+              view.goTo(prePrintViewpoint, { duration: 0 }).catch(function () {});
+            }
+          });
+      }
+
+      if (!selectedParcelGeometry || !selectedParcelGeometry.extent) {
+        setTimeout(captureAndOpen, 250);
+        return;
+      }
+
+      const targetExtent = selectedParcelGeometry.extent.expand(1.08);
+      try { view.resize(); } catch (e) {}
+
+      setTimeout(function () {
+        view.goTo(targetExtent, { duration: 0 }).then(function () {
+          const waitForReady = function () {
+            if (!view.updating && view.stationary) setTimeout(captureAndOpen, 250);
+            else requestAnimationFrame(waitForReady);
+          };
+          waitForReady();
+        }).catch(function () {
+          setTimeout(captureAndOpen, 300);
+        });
+      }, 150);
+    };
+
+    view.when(function () {
+      refreshSnapSources();
+      applyActiveSketchSymbols();
+      setStatus('Map initialized', true);
+
+      if (!geoParam) {
+        document.getElementById('loading').classList.add('hidden');
+        setStatus('No parcel selected. Return to the main app and choose a parcel.', false);
+        return;
+      }
+
+      setStatus('Querying parcel ' + geoParam + '...');
+
+      parcelLayer.queryFeatures({
+        where: pf.parcelNumber + " = '" + geoParam.replace(/'/g, "''") + "'",
+        outFields: ['*'],
+        returnGeometry: true
+      }).then(function (result) {
+        if (!result.features || !result.features.length) {
+          document.getElementById('loading').classList.add('hidden');
+          setStatus('Parcel not found.', false);
+          return;
+        }
+
+        const feature = result.features[0];
+        const attrs = feature.attributes;
+        selectedParcelGeometry = feature.geometry;
+
+        highlightLayer.removeAll();
+        highlightLayer.add(new Graphic({
+          geometry: selectedParcelGeometry,
+          symbol: {
+            type: 'simple-fill',
+            color: [255, 215, 0, 0.08],
+            outline: { type: 'simple-line', color: [230, 184, 0, 1], width: 3 }
+          }
+        }));
+
+        const addr = addrParam || attrs[pf.siteAddress] || 'Address not on file';
+        const owner = ownParam || attrs[pf.ownerName] || '';
+
+        document.getElementById('pb-addr').textContent = addr;
+        document.getElementById('pb-owner').textContent = owner ? 'Owner: ' + owner : '';
+        document.getElementById('pb-geo').textContent = 'Parcel: ' + geoParam;
+        document.getElementById('parcel-badge').style.display = 'block';
+
+        refreshSnapSources();
+
+        return view.goTo(selectedParcelGeometry.extent.expand(1.18), { duration: 800 });
+      }).then(function () {
+        document.getElementById('loading').classList.add('hidden');
+        setStatus('Parcel loaded — select a draw tool to begin sketching.', true);
+      }).catch(function (err) {
+        console.error(err);
+        document.getElementById('loading').classList.add('hidden');
+        setStatus('Error loading parcel.', false);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
