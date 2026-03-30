@@ -7,7 +7,7 @@ var SitePlanConfig = {
 
   layers: {
     parcels: {
-      url: "https://services8.arcgis.com/C0L6rRPkF9w28VGX/arcgis/rest/services/Parcel_Information_Report/FeatureServer/0",
+      url: "https://services8.arcgis.com/COL6rRPkF9w28VGX/arcgis/rest/services/Parcel_Information_Report/FeatureServer",
       outFields: ["*"],
 
       popupFields: {
