@@ -307,12 +307,12 @@
   }
 
   require([
-    'esri/Map', 'esri/views/MapView',
+    'esri/WebMap', 'esri/views/MapView',
     'esri/layers/FeatureLayer', 'esri/layers/GraphicsLayer',
     'esri/Graphic', 'esri/geometry/geometryEngine', 'esri/geometry/Polygon',
     'esri/widgets/Sketch', 'esri/widgets/Home', 'esri/widgets/ScaleBar'
   ], function (
-    EsriMap, MapView,
+    WebMap, MapView,
     FeatureLayer, GraphicsLayer,
     Graphic, geometryEngine, Polygon,
     Sketch, Home, ScaleBar
@@ -325,7 +325,6 @@
 
     const pf = cfg.layers.parcels.popupFields;
     let selectedParcelGeometry = null;
-    let currentParcelAttrs     = null;
     let prePrintViewpoint      = null;
     let activeCalloutPreview   = null;
 
@@ -345,17 +344,21 @@
     const previewLayer   = new GraphicsLayer({ title:'Preview',        listMode:'hide' });
     const highlightLayer = new GraphicsLayer({ title:'Selected Parcel',listMode:'hide' });
 
-    const map = new EsriMap({
-      basemap: cfg.map.basemap,
+    const map = new WebMap({
+      portalItem: { id: (cfg.map && cfg.map.webMapId) || '6d9fa6d159ae4a1f80b9e296ed300767' },
       layers: [parcelLayer, highlightLayer, drawLayer, labelLayer, previewLayer]
     });
 
     const view = new MapView({
       container:'viewDiv', map, ui:{components:['zoom']},
-      popup:{autoOpenEnabled:false}, center:cfg.map.center, zoom:12
+      popup:{autoOpenEnabled:false}
     });
     view.ui.add(new Home({ view }), 'top-left');
     view.ui.add(new ScaleBar({ view, unit:'dual' }), 'bottom-right');
+
+    if (cfg.map && cfg.map.center && cfg.map.zoom) {
+      view.when(() => view.goTo({ center: cfg.map.center, zoom: cfg.map.zoom }, { duration: 0 }).catch(() => {}));
+    }
 
     const sketch = new Sketch({
       view, layer:drawLayer, updateOnGraphicClick:true, creationMode:'update',
@@ -409,6 +412,9 @@
       }
     };
 
+    // Drainfield polygon: just the boundary outline.
+    // Interior lines (header + 3 laterals) are separate computed graphics
+    // so they always stay exactly 1 header + 3 laterals regardless of polygon size.
     function drainfieldSym(isReserve) {
       return {
         type: 'simple-fill',
@@ -417,36 +423,48 @@
       };
     }
 
+    // Build the 4 overlay graphics (1 header + 3 laterals) for a drainfield polygon.
+    // Lines sit inside the polygon boundary with a small inset margin.
+    // ── Drainfield geometry ───────────────────────────────────
+    // Works in local polygon space so lines stay correct after rotation.
     function calcDrainfieldLines(polygon) {
       const ring = polygon.rings[0];
       const pts  = ring.slice(0, 4).map(p => ({ x:p[0], y:p[1] }));
 
+      // Identify short edges (header direction) vs long edges (lateral direction)
       const d01 = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
       const d12 = Math.hypot(pts[2].x-pts[1].x, pts[2].y-pts[1].y);
 
+      // A-B = one short end,  D-C = opposite short end
+      // Laterals run A→D and B→C
       let A, B, C, D;
       if (d01 <= d12) { A=pts[0]; B=pts[1]; C=pts[2]; D=pts[3]; }
       else            { A=pts[1]; B=pts[2]; C=pts[3]; D=pts[0]; }
 
+      // Make A-B the "top" end (higher average Y = further north)
       if ((A.y + B.y) < (D.y + C.y)) { [A,B,C,D] = [D,C,B,A]; }
 
+      // Interpolate along the two long edges at parameter t (0=top, 1=bottom)
       function alongLong(t) {
         return {
           left:  { x: A.x + t*(D.x-A.x), y: A.y + t*(D.y-A.y) },
           right: { x: B.x + t*(C.x-B.x), y: B.y + t*(C.y-B.y) }
         };
       }
+      // Interpolate across the short edge at parameter u (0=left, 1=right)
       function acrossShort(L, R, u) {
         return { x: L.x + u*(R.x-L.x), y: L.y + u*(R.y-L.y) };
       }
 
       const margin = 0.10;
-      const topRow = alongLong(margin);
-      const botRow = alongLong(1 - margin);
+      const topRow = alongLong(margin);        // header sits here
+      const botRow = alongLong(1 - margin);    // laterals end here
 
+      // Header spans outer two laterals (25 %–75 %)
       const hStart = acrossShort(topRow.left, topRow.right, 0.25);
       const hEnd   = acrossShort(topRow.left, topRow.right, 0.75);
 
+      // 3 laterals at 25 %, 50 %, 75 %
       const laterals = [0.25, 0.50, 0.75].map(u => {
         const top = acrossShort(topRow.left, topRow.right, u);
         const bot = acrossShort(botRow.left, botRow.right, u);
@@ -517,6 +535,7 @@
       return {type:'simple-marker',style:'circle',color:[80,80,80,1],size:9,outline:{color:[0,0,0,0.5],width:1}};
     }
 
+    // ── Print text scaling ────────────────────────────────────
     function getPrintTextSize(scale) {
       if (!scale) return 10;
       if (scale<=1200) return 11; if (scale<=2500) return 10; if (scale<=5000) return 9; return 8;
@@ -544,6 +563,7 @@
       (originals||[]).forEach(item => { if (item&&item.graphic&&item.symbol) item.graphic.symbol=item.symbol; });
     }
 
+    // ── Measure box ───────────────────────────────────────────
     function showMeasure(label, main, sub) {
       document.getElementById('ms-label').textContent = label;
       document.getElementById('ms-main').textContent  = main;
@@ -551,6 +571,7 @@
       document.getElementById('measure-box').style.display = 'block';
     }
 
+    // ── Line labels (setback / distance) ─────────────────────
     function createOrUpdateLineLabel(graphic) {
       if (!graphic||!graphic.geometry||graphic.geometry.type!=='polyline') return;
       const id = graphic.__sitePlanId || ('line_'+Date.now()+'_'+Math.random().toString(36).slice(2));
@@ -574,12 +595,14 @@
       if (lbl) { labelLayer.remove(lbl); lineLabelMap.delete(id); }
     }
 
+    // ── Circle builder (well buffer) ──────────────────────────
     function circlePolygon(center, radiusFt) {
       const r=radiusFt*0.3048, n=72, rings=[];
       for (let i=0;i<=n;i++) { const a=(i/n)*2*Math.PI; rings.push([center.x+r*Math.cos(a),center.y+r*Math.sin(a)]); }
       return new Polygon({rings:[rings],spatialReference:center.spatialReference});
     }
 
+    // ── Well graphics sync (on move) ──────────────────────────
     function syncWell(center, wellId) {
       const r = 100*0.3048;
       const buf = drawLayer.graphics.find(x=>x.__wellId===wellId&&x.__wellRole==='buffer');
@@ -591,6 +614,7 @@
       if (lbl) lbl.geometry = {type:'point',x:center.x,y:center.y+r*0.52,spatialReference:center.spatialReference};
     }
 
+    // ── Fixed-size rect builder ───────────────────────────────
     function buildRect(center, lFt, wFt) {
       const m=0.3048, hl=(lFt*m)/2, hw=(wFt*m)/2, x=center.x, y=center.y;
       return new Polygon({
@@ -609,6 +633,7 @@
       showMeasure(extraProps.__label||'Shape', Math.round(sq).toLocaleString()+' sq ft', lFt+' × '+wFt+' ft');
     }
 
+    // ── Tool helpers ──────────────────────────────────────────
     function deactivateAll() {
       document.querySelectorAll('.draw-tool-btn').forEach(b=>b.classList.remove('active'));
     }
@@ -621,6 +646,7 @@
       if (btnId) activateBtn(btnId);
     }
 
+    // ── STRUCTURE TOOL ────────────────────────────────────────
     window.startStructure = function (type) {
       cancelAndReset('btn-'+type);
       const sym = type==='existing' ? SYM.existing : SYM.proposed;
@@ -644,13 +670,14 @@
       }
     };
 
+    // ── WELL TOOL ─────────────────────────────────────────────
     window.startWellTool = function () {
       cancelAndReset('btn-well');
       const h=view.on('click',ev=>{
         h.remove(); deactivateAll();
         const center=ev.mapPoint;
         const wellId='well_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-        const r=100*0.3048;
+        const r=100*0.3048; // 100 ft in metres
 
         const marker=new Graphic({geometry:center,symbol:{
           type:'simple-marker',style:'circle',color:[255,255,255,1],size:10,
@@ -664,6 +691,7 @@
         }});
         buffer.__wellId=wellId; buffer.__wellRole='buffer';
 
+        // Single radial spoke pointing north
         const spoke=new Graphic({
           geometry:{type:'polyline',spatialReference:center.spatialReference,
             paths:[[[center.x,center.y],[center.x,center.y+r]]]},
@@ -671,6 +699,7 @@
         });
         spoke.__wellId=wellId; spoke.__wellRole='spoke_0';
 
+        // Label runs parallel to the spoke — rotated 90° so it reads sideways
         const bufLbl=new Graphic({
           geometry:{type:'point',x:center.x,y:center.y+r*0.52,spatialReference:center.spatialReference},
           symbol:{type:'text',text:"R100' Well Buffer",color:[255,255,255,1],haloColor:[80,80,80,1],haloSize:2,
@@ -687,6 +716,7 @@
       setStatus('Click the map to place the well.');
     };
 
+    // ── SEPTIC TANK TOOL ──────────────────────────────────────
     window.startSepticTool = function () {
       cancelAndReset('btn-septic');
       const useFixed = document.getElementById('chk-septic').checked;
@@ -708,6 +738,7 @@
       }
     };
 
+    // ── DRAINFIELD TOOL ───────────────────────────────────────
     window.startDrainfieldTool = function (isReserve) {
       const btnId = isReserve ? 'btn-reserve' : 'btn-drainfield';
       const chkId = isReserve ? 'chk-reserve' : 'chk-drainfield';
@@ -832,6 +863,7 @@
       setStatus('Click the map to place the text.');
     };
 
+    // ── CALLOUT TOOL ──────────────────────────────────────────
     function clearCalloutPreview() {
       previewLayer.removeAll();
       if (activeCalloutPreview&&activeCalloutPreview.moveHandle) activeCalloutPreview.moveHandle.remove();
@@ -893,12 +925,14 @@
       lbl.geometry=anchor.geometry.clone?anchor.geometry.clone():anchor.geometry;
     }
 
+    // ── Sketch events ─────────────────────────────────────────
     sketch.on('create', ev => {
       if (ev.state!=='complete') return;
       const g=ev.graphic;
       const pt=sketch._pendingType;
       sketch._pendingType=null;
 
+      // Apply correct symbol for freehand draws
       if (pt==='proposed'||pt==='existing') {
         g.symbol=pt==='existing'?SYM.existing:SYM.proposed;
         g.__structureType=pt;
@@ -918,7 +952,7 @@
         g.__isLine=true;
       } else if (pt==='septicline') {
         g.symbol=SYM.septicLine;
-        g.__isLine=true;
+        g.__isLine=true; // skip measurement label
       } else if (pt==='grading') {
         g.symbol=SYM.grading;
         g.__isGrading=true;
@@ -926,6 +960,7 @@
         g.symbol=SYM.easement;
         g.__isEasement=true;
       } else {
+        // drawTool polygon/rectangle
         g.symbol=SYM.drawPoly;
       }
 
@@ -985,6 +1020,7 @@
       if ((e.key==='Delete'||e.key==='Backspace')&&sketch.updateGraphics&&sketch.updateGraphics.length) sketch.delete();
     });
 
+    // ── Toolbar buttons ───────────────────────────────────────
     window.toggleSnapping = function (enabled) {
       sketch.snappingOptions.enabled=enabled;
       sketch.snappingOptions.selfEnabled=enabled;
@@ -1006,411 +1042,116 @@
       setStatus('All items cleared.');
     };
 
+    // ── Print ─────────────────────────────────────────────────
     window.printPlan = function () {
       setStatus('Preparing printable map image...');
       prePrintViewpoint = view.viewpoint ? view.viewpoint.clone() : null;
 
-      function escHtml(value) {
-        return String(value == null ? '' : value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
-
-      function fmt(value, fallback) {
-        const v = value == null ? '' : String(value).trim();
-        return v ? v : (fallback || '—');
-      }
-
-      function fmtSetback(value) {
-        const v = value == null ? '' : String(value).trim();
-        return v ? v + ' ft' : '—';
-      }
-
-      function lineGraphicExists(testFn) {
-        return drawLayer.graphics.toArray().some(g => g && g.geometry && testFn(g));
-      }
-
-      function polygonGraphicExists(testFn) {
-        return drawLayer.graphics.toArray().some(g => g && g.geometry && g.geometry.type === 'polygon' && testFn(g));
-      }
-
-      function pointGraphicExists(testFn) {
-        return drawLayer.graphics.toArray().some(g => g && g.geometry && g.geometry.type === 'point' && testFn(g));
-      }
-
-      function buildLegendItems() {
-        const items = [];
-        if (polygonGraphicExists(g => g.__structureType === 'proposed')) items.push(['legend-proposed','Proposed structure']);
-        if (polygonGraphicExists(g => g.__structureType === 'existing')) items.push(['legend-existing','Existing structure']);
-        if (pointGraphicExists(g => g.__wellRole === 'center')) items.push(['legend-well','Well']);
-        if (polygonGraphicExists(g => g.__wellRole === 'buffer') || drawLayer.graphics.toArray().some(g => g.__wellRole === 'buffer')) items.push(['legend-buffer',"100' well buffer"]);
-        if (polygonGraphicExists(g => g.__isSepticTank)) items.push(['legend-septic','Septic tank']);
-        if (drawLayer.graphics.toArray().some(g => g.__isDrainfield === 'primary')) items.push(['legend-drainfield','Drainfield']);
-        if (drawLayer.graphics.toArray().some(g => g.__isDrainfield === 'reserve')) items.push(['legend-reserve','Reserve drainfield']);
-        if (lineGraphicExists(g => g.__isLine && !g.__wellRole && !g.__calloutId && !g.__isDrainfield && !g.__isSepticTank && g.symbol && g.symbol.style === 'solid' && g.symbol.color && g.symbol.color[1] !== 110)) items.push(['legend-line','Line']);
-        if (lineGraphicExists(g => !g.__isLine && !g.__calloutId && g.symbol && g.symbol.style === 'short-dash')) items.push(['legend-setback','Setback / distance']);
-        if (polygonGraphicExists(g => g.__isGrading)) items.push(['legend-grading','Proposed grading']);
-        if (polygonGraphicExists(g => g.__isEasement)) items.push(['legend-easement','Easement']);
-        if (lineGraphicExists(g => g.symbol && g.symbol.color && g.symbol.color[1] === 110)) items.push(['legend-septicline','Septic line']);
-        if (drawLayer.graphics.toArray().some(g => g.__calloutRole === 'leader')) items.push(['legend-callout','Callout']);
-        if (drawLayer.graphics.toArray().some(g => g.geometry && g.geometry.type === 'point' && g.symbol && g.symbol.type === 'text' && !g.__calloutRole)) items.push(['legend-text','Text label']);
-        if (!items.length) items.push(['legend-empty','No sketch items on map']);
-        return items.map(([cls,label]) => `<div class="legend-item"><span class="legend-swatch ${cls}"></span><span>${escHtml(label)}</span></div>`).join('');
-      }
-
       function openPrintWindow(dataUrl, mapScale) {
-        const attrs = currentParcelAttrs || {};
-        const geo   = fmt(geoParam);
-        const addr  = fmt(document.getElementById('pb-addr').textContent, 'Address not on file');
-        const owner = fmt(attrs[pf.ownerName]);
-        const zoning = fmt(attrs[pf.zoningAbbrev] || attrs[pf.zoningName]);
-        const front = fmtSetback(attrs[pf.setbackFront]);
-        const side  = fmtSetback(attrs[pf.setbackSide]);
-        const rear  = fmtSetback(attrs[pf.setbackRear]);
-        const dateGenerated = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-        const agencyLine = escHtml((cfg.branding.agencyName || 'Community Development') + ' Department');
-        const directorLine = 'Acting Director: Melissa Shumake';
-        const officeLine = escHtml(cfg.branding.address || '310 W. Poplar Street, Suite 200 | Walla Walla, WA 99362');
-        const contactLine = 'Main: commdev@wwcowa.gov | ' + escHtml(cfg.branding.phone || '509-524-2610');
-        const formsUrl = escHtml(cfg.branding.formsUrl || '');
-        const disclaimer = 'MAP DISCLAIMER: This site plan was generated using data obtained from the Walla Walla County Community Development Department and the County GIS. The presence or absence of mapped critical areas does not constitute a formal determination. Additional review, mitigation, or information may be required prior to development; this map does not preclude the County from requesting revisions to plans.';
+        const geo  = geoParam || '—';
+        const addr = document.getElementById('pb-addr').textContent || 'Address not on file';
+        const dt   = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
+        // ── Scale bar calculation ─────────────────────────────
+        // mapScale is the representative fraction denominator (e.g. 2400 → 1:2400)
+        // Print image is ~10.2in wide. Pick largest "nice" distance that fits ~1.5in bar.
         const niceDistsFt = [10,20,25,50,100,200,500,1000,2000];
         let barFt = 10, barInches = 0;
         for (const d of niceDistsFt) {
-          const w = (d * 12) / mapScale;
-          if (w <= 1.55) { barFt = d; barInches = w; }
+          const w = (d * 12) / mapScale; // inches on print
+          if (w <= 1.5) { barFt = d; barInches = w; }
         }
-        const barPx = Math.max(48, Math.round(barInches * 96));
-        const legendHtml = buildLegendItems();
+        const barPx = Math.round(barInches * 96); // 96dpi
 
         const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><title>Site Plan Print</title>
 <style>
-@page { size: letter landscape; margin: 0; }
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 11in;
-  height: 8.5in;
-  overflow: hidden;
-  background: #ffffff;
-  font-family: Arial, Helvetica, sans-serif;
-  color: #111;
-}
-#sheet {
-  position: relative;
-  width: 11in;
-  height: 8.5in;
-  overflow: hidden;
-  background: #fff;
-}
-#outer-border {
-  position: absolute;
-  top: 0.16in;
-  left: 0.16in;
-  right: 0.16in;
-  bottom: 0.16in;
-  border: 1.4px solid #000;
-  box-sizing: border-box;
-}
-#map-frame {
-  position: absolute;
-  left: 0.18in;
-  top: 0.18in;
-  width: 8.78in;
-  height: 6.82in;
-  border: 1.4px solid #000;
-  box-sizing: border-box;
-  background: #fff;
-  overflow: hidden;
-}
-#map-image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  background: #fff;
-}
-#north-arrow {
-  position: absolute;
-  right: 0.07in;
-  top: 0.05in;
-  width: 0.33in;
-  text-align: center;
-  z-index: 3;
-}
-#north-arrow .north-label {
-  font-size: 10px;
-  line-height: 1;
-  margin-bottom: 2px;
-}
-#north-arrow svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-#sidebar-print {
-  position: absolute;
-  right: 0.18in;
-  top: 0.18in;
-  width: 1.82in;
-  height: 6.82in;
-}
-#legend-box {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 2.46in;
-  border: 1.4px solid #000;
-  box-sizing: border-box;
-  padding: 0.06in 0.06in 0.05in;
-  overflow: hidden;
-}
-#property-box {
-  position: absolute;
-  left: 0;
-  top: 2.46in;
-  width: 100%;
-  height: 2.44in;
-  border-left: 1.4px solid #000;
-  border-right: 1.4px solid #000;
-  border-bottom: 1.4px solid #000;
-  box-sizing: border-box;
-  padding: 0.05in 0.05in 0.03in;
-  overflow: hidden;
-}
-#sidebar-bottom {
-  position: absolute;
-  left: 0.05in;
-  bottom: 0.10in;
-  width: calc(100% - 0.05in);
-  height: 1.60in;
-  box-sizing: border-box;
-}
-#legend-title {
-  font-size: 10px;
-  font-weight: 700;
-  margin-bottom: 0.05in;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 8.6px;
-  line-height: 1.15;
-  margin-bottom: 0.032in;
-}
-.legend-swatch {
-  width: 20px;
-  min-width: 20px;
-  height: 12px;
-  display: inline-block;
-  position: relative;
-  box-sizing: border-box;
-}
-.legend-proposed { border: 2px solid #c80000; background: rgba(200,0,0,.10); }
-.legend-existing { border: 2px dashed #444; background: rgba(0,0,0,.03); }
-.legend-well { width: 10px; min-width: 10px; height: 10px; border: 2px solid #000; border-radius: 50%; background: #fff; margin-left: 5px; margin-right: 5px; }
-.legend-buffer { height: 0; border-top: 1.5px dashed #666; margin-top: 6px; }
-.legend-septic { border: 1.5px solid #005a1e; background: rgba(0,140,60,.22); }
-.legend-drainfield, .legend-reserve {
-  background: repeating-linear-gradient(to right, transparent 0, transparent 5px, #006e2d 5px, #006e2d 6px);
-  border-top: 2px solid #006e2d;
-}
-.legend-reserve { border-top-style: dashed; opacity: .75; }
-.legend-line { height: 0; border-top: 1.5px solid #000; margin-top: 6px; }
-.legend-setback { height: 0; border-top: 1.5px dashed #000; margin-top: 6px; }
-.legend-grading { border: 1.5px solid #6e4100; background: repeating-linear-gradient(135deg, rgba(160,100,0,.62) 0, rgba(160,100,0,.62) 2px, transparent 2px, transparent 6px); }
-.legend-easement { border: 1.5px solid #003296; background: repeating-linear-gradient(0deg, rgba(0,80,180,.45) 0, rgba(0,80,180,.45) 2px, transparent 2px, transparent 5px); }
-.legend-septicline { height: 0; border-top: 2px solid #006e2d; margin-top: 6px; }
-.legend-callout { height: 0; border-top: 1.5px solid #000; margin-top: 6px; }
-.legend-callout::after { content: ''; position: absolute; left: 0; top: -4px; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 6px solid #000; }
-.legend-text { border: 1px solid #444; background: #fff; }
-.legend-empty { border: 1px solid #aaa; background: #fff; }
-#property-title {
-  font-size: 10px;
-  font-weight: 700;
-  margin-bottom: 0.035in;
-}
-.table-row {
-  display: grid;
-  grid-template-columns: 0.82in 1fr;
-  gap: 0.03in;
-  font-size: 8.6px;
-  line-height: 1.12;
-  margin-bottom: 0.025in;
-}
-.table-row .label { font-weight: 700; }
-#scale-wrap {
-  position: absolute;
-  left: 0;
-  top: 0;
-}
-#scale-labels {
-  display: flex;
-  justify-content: space-between;
-  width: ${barPx}px;
-  font-size: 8px;
-  margin-bottom: 2px;
-}
-#scale-bar {
-  position: relative;
-  width: ${barPx}px;
-  height: 12px;
-  border-bottom: 1.4px solid #000;
-}
-#scale-bar::before,
-#scale-bar::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  width: 1.4px;
-  height: 12px;
-  background: #000;
-}
-#scale-bar::before { left: 0; }
-#scale-bar::after { right: 0; }
-.scale-tick {
-  position: absolute;
-  bottom: -1px;
-  width: 1.1px;
-  height: 8px;
-  background: #000;
-}
-#date-generated {
-  position: absolute;
-  left: 0;
-  top: 0.34in;
-  font-size: 8.5px;
-  white-space: nowrap;
-}
-#footer-left {
-  position: absolute;
-  left: 0.18in;
-  top: 7.03in;
-  width: 8.78in;
-  height: 1.08in;
-  box-sizing: border-box;
-  font-size: 9px;
-  line-height: 1.25;
-  overflow: hidden;
-}
-#footer-left .disclaimer {
-  margin-bottom: 0.04in;
-}
-#footer-left div {
-  margin-bottom: 0.012in;
-}
-#footer-left a {
-  color: #1170c7;
-  text-decoration: none;
-}
+@page{size:letter landscape;margin:.25in}
+html,body{margin:0;padding:0;background:#fff;font-family:'Segoe UI',Arial,sans-serif}
+#sheet{position:relative;width:11in;height:8.5in;margin:0 auto;background:#fff}
+#frame{position:absolute;top:.22in;left:.22in;right:.22in;bottom:.22in;border:2px solid #000;box-sizing:border-box}
+#map-image{position:absolute;top:.40in;left:.40in;right:.40in;bottom:.40in;
+  width:calc(100% - .80in);height:calc(100% - .80in);object-fit:contain;object-position:center;background:#fff}
+#title-block{position:absolute;right:.40in;bottom:.32in;width:2.70in;min-height:.78in;
+  border:1px solid #000;background:#fff;padding:.07in .09in;font-size:8.5px;line-height:1.28;box-sizing:border-box}
+#title-block .t{font-weight:700;font-size:9.5px;margin-bottom:4px}
+#title-block .r{margin-bottom:2px}
+#north-arrow{position:absolute;left:.55in;bottom:.50in;width:.45in;height:.55in;background:#fff;
+  border:1px solid #000;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:3px;box-sizing:border-box;}
+#north-arrow svg{width:28px;height:36px;}
+#north-arrow .n-lbl{font-size:8px;font-weight:700;margin-top:1px;}
+#scale-bar{position:absolute;left:1.15in;bottom:.52in;background:#fff;padding:3px 5px;
+  border:1px solid #000;font-size:7.5px;box-sizing:border-box;}
+#scale-bar .bar-wrap{display:flex;align-items:center;gap:0;}
+.bar-seg{height:7px;border:1px solid #000;}
+#scale-bar .bar-lbl{margin-top:2px;text-align:center;}
 </style></head><body>
 <div id="sheet">
-  <div id="outer-border"></div>
+  <div id="frame"></div>
+  <img id="map-image" src="${dataUrl}" alt="Site plan map">
 
-  <div id="map-frame">
-    <img id="map-image" src="${dataUrl}" alt="Site plan map">
-    <div id="north-arrow">
-      <div class="north-label">N</div>
-      <svg viewBox="0 0 24 38" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <polygon points="12,1 21,27 12,21 3,27" fill="#000"/>
-      </svg>
-    </div>
+  <div id="north-arrow">
+    <svg viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">
+      <!-- North half — filled black -->
+      <polygon points="14,2 20,18 14,14 8,18" fill="#000"/>
+      <!-- South half — white with outline -->
+      <polygon points="14,34 20,18 14,22 8,18" fill="#fff" stroke="#000" stroke-width="1"/>
+      <!-- Center dot -->
+      <circle cx="14" cy="18" r="2" fill="#000"/>
+    </svg>
+    <div class="n-lbl">N</div>
   </div>
 
-  <div id="sidebar-print">
-    <div id="legend-box">
-      <div id="legend-title">Legend</div>
-      ${legendHtml}
+  <div id="scale-bar">
+    <div class="bar-wrap">
+      <div class="bar-seg" style="width:${Math.round(barPx/2)}px;background:#000;border-right:none;"></div>
+      <div class="bar-seg" style="width:${Math.round(barPx/2)}px;background:#fff;border-left:none;"></div>
     </div>
-
-    <div id="property-box">
-      <div id="property-title">Property Information:</div>
-      <div class="table-row"><div class="label">Parcel Number:</div><div>${escHtml(geo)}</div></div>
-      <div class="table-row"><div class="label">Owner:</div><div>${escHtml(owner)}</div></div>
-      <div class="table-row"><div class="label">Address:</div><div>${escHtml(addr)}</div></div>
-      <div class="table-row"><div class="label">Zoning:</div><div>${escHtml(zoning)}</div></div>
-      <div class="table-row"><div class="label">Required Setbacks</div><div></div></div>
-      <div class="table-row"><div class="label">Front:</div><div>${escHtml(front)}</div></div>
-      <div class="table-row"><div class="label">Side:</div><div>${escHtml(side)}</div></div>
-      <div class="table-row"><div class="label">Rear:</div><div>${escHtml(rear)}</div></div>
-    </div>
-
-    <div id="sidebar-bottom">
-      <div id="scale-wrap">
-        <div id="scale-labels">
-          <span>0</span>
-          <span>${Math.round(barFt/2)}</span>
-          <span>${barFt} Feet</span>
-        </div>
-        <div id="scale-bar">
-          <span class="scale-tick" style="left:${Math.round(barPx*0.125)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.25)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.375)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.5)}px; height:12px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.625)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.75)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.875)}px;"></span>
-        </div>
-        <div id="date-generated">Date generated: ${escHtml(dateGenerated)}</div>
-      </div>
-    </div>
+    <div class="bar-lbl">0 &nbsp;&nbsp;&nbsp; ${barFt} ft</div>
   </div>
 
-  <div id="footer-left">
-    <div class="disclaimer">${escHtml(disclaimer)}</div>
-    <div>${agencyLine}</div>
-    <div>${directorLine}</div>
-    <div>${officeLine}</div>
-    <div>${contactLine}</div>
-    ${formsUrl ? `<div><a href="${formsUrl}">${formsUrl}</a></div>` : ''}
+  <div id="title-block">
+    <div class="t">Walla Walla County Community Development</div>
+    <div class="r"><strong>Parcel:</strong> ${geo}</div>
+    <div class="r"><strong>Address:</strong> ${addr}</div>
+    <div class="r"><strong>Date:</strong> ${dt}</div>
   </div>
 </div>
 <script>
-window.onload = function(){ setTimeout(function(){ window.focus(); window.print(); }, 500); };
-window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 200); };
+window.onload=function(){setTimeout(function(){window.focus();window.print();},300)};
+window.onafterprint=function(){setTimeout(function(){window.close();},150)};
 <\/script></body></html>`;
-        const w = window.open('', '_blank', 'width=1320,height=950');
-        if (!w) { setStatus('Pop-up blocked. Allow pop-ups and try again.', false); return; }
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-        setStatus('Print window opened.', true);
+        const w=window.open('','_blank','width=1200,height=900');
+        if (!w) { setStatus('Pop-up blocked. Allow pop-ups and try again.',false); return; }
+        w.document.open(); w.document.write(html); w.document.close();
+        setStatus('Print window opened.',true);
       }
 
       function captureAndOpen() {
         const mapScale = view.scale || 2400;
-        const orig = applyPrintTextStyles();
-        view.takeScreenshot({ format:'png', quality:100, width:2200, height:1500 })
-          .then(r => openPrintWindow(r.dataUrl, mapScale))
-          .catch(err => { console.error(err); setStatus('Screenshot failed.', false); })
-          .finally(() => {
+        const orig=applyPrintTextStyles();
+        view.takeScreenshot({format:'png',quality:100,width:2200,height:1400})
+          .then(r=>openPrintWindow(r.dataUrl, mapScale))
+          .catch(err=>{console.error(err);setStatus('Screenshot failed.',false);})
+          .finally(()=>{
             restoreTextStyles(orig);
-            if (prePrintViewpoint) view.goTo(prePrintViewpoint, { duration:0 }).catch(() => {});
+            if(prePrintViewpoint) view.goTo(prePrintViewpoint,{duration:0}).catch(()=>{});
           });
       }
 
-      if (!selectedParcelGeometry || !selectedParcelGeometry.extent) { setTimeout(captureAndOpen, 250); return; }
-      const ext = selectedParcelGeometry.extent.expand(1.03);
-      try { view.resize(); } catch (e) {}
-      setTimeout(() => {
-        view.goTo(ext, { duration:0 }).then(() => {
-          const wait = () => { if (!view.updating && view.stationary) setTimeout(captureAndOpen, 250); else requestAnimationFrame(wait); };
+      if (!selectedParcelGeometry||!selectedParcelGeometry.extent) { setTimeout(captureAndOpen,250); return; }
+      const ext=selectedParcelGeometry.extent.expand(1.08);
+      try{view.resize();}catch(e){}
+      setTimeout(()=>{
+        view.goTo(ext,{duration:0}).then(()=>{
+          const wait=()=>{ if(!view.updating&&view.stationary) setTimeout(captureAndOpen,250); else requestAnimationFrame(wait); };
           wait();
-        }).catch(() => setTimeout(captureAndOpen, 300));
-      }, 150);
+        }).catch(()=>setTimeout(captureAndOpen,300));
+      },150);
     };
 
+    // ── Map ready / parcel load ───────────────────────────────
     view.when(() => {
       refreshSnapSources();
       setStatus('Map initialized',true);
@@ -1432,7 +1173,6 @@ window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 200)
         }
         const feature=result.features[0], attrs=feature.attributes;
         selectedParcelGeometry=feature.geometry;
-        currentParcelAttrs=attrs;
 
         highlightLayer.add(new Graphic({geometry:selectedParcelGeometry,symbol:{
           type:'simple-fill',color:[255,215,0,0.08],
