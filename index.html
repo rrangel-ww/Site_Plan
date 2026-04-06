@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -9,81 +10,131 @@
   <script src="https://js.arcgis.com/4.30/"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin:0; padding:0; height:100%; font-family:'Segoe UI',Arial,sans-serif; overflow:hidden; }
+    html, body { margin:0; padding:0; height:100%; font-family:Calibri,'Segoe UI',Arial,sans-serif; overflow:hidden; }
     #app { display:flex; flex-direction:column; height:100vh; }
 
-    /* Header */
-    #header {
-      height:56px; background:#1a3a6b; color:#fff;
-      display:flex; align-items:center; gap:12px; padding:0 16px;
-      border-bottom:4px solid #c8a84b;
-    }
-    #titlewrap { flex:1; min-width:0; }
-    #agency { font-size:10px; text-transform:uppercase; letter-spacing:.08em; opacity:.7; }
-    #title  { font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .hdr-btn {
-      border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.1);
-      color:#fff; border-radius:4px; padding:7px 10px; cursor:pointer; font:inherit; font-size:12px;
-    }
-    .hdr-btn:hover { background:rgba(255,255,255,.18); }
-    .hdr-btn.gold { background:#c8a84b; color:#1a1f2e; border-color:#c8a84b; font-weight:700; }
+```
+/* Header */
+#header {
+  height:56px; background:#1a3a6b; color:#fff;
+  display:flex; align-items:center; gap:12px; padding:0 16px;
+  border-bottom:4px solid #c8a84b;
+}
+#titlewrap { flex:1; min-width:0; }
+#agency { font-size:10px; font-weight:700; color:#fff; opacity:.85; }
+#title  { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hdr-btn {
+  border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.1);
+  color:#fff; border-radius:4px; padding:7px 10px; cursor:pointer; font:inherit; font-size:12px;
+}
+.hdr-btn:hover { background:rgba(255,255,255,.18); }
+.hdr-btn.gold { background:#c8a84b; color:#1a1f2e; border-color:#c8a84b; font-weight:700; }
 
-    /* Layout */
-    #main { flex:1; display:flex; min-height:0; }
+/* Basemap toggle */
+#basemap-toggle {
+  position:absolute; top:12px; right:12px; z-index:10;
+  display:flex; flex-direction:column; gap:4px;
+}
+.bm-btn {
+  width:64px; height:64px; border-radius:6px; border:2px solid #fff;
+  cursor:pointer; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.35);
+  position:relative; transition:border-color .15s;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+  padding-bottom:4px;
+}
+.bm-btn:hover { border-color:#c8a84b; }
+.bm-btn.active { border-color:#1a3a6b; box-shadow:0 0 0 3px #1a3a6b,0 2px 6px rgba(0,0,0,.35); }
+.bm-thumb { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.bm-label {
+  position:relative; z-index:1; font-size:9px; font-weight:700; color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.9); text-align:center; line-height:1.2;
+  background:rgba(0,0,0,.35); width:100%; padding:2px 3px; margin:0 -3px;
+}
 
-    /* Sidebar */
-    #sidebar { width:240px; background:#fff; border-right:1px solid #d7dce3; overflow:auto; display:flex; flex-direction:column; }
-    .section-head {
-      background:#1a3a6b; color:#fff; font-size:10px;
-      text-transform:uppercase; letter-spacing:.08em; padding:7px 12px; font-weight:700;
-    }
-    .section-body { padding:8px 10px; border-bottom:1px solid #eef1f4; }
-    .tool-btn {
-      width:100%; margin-bottom:0; padding:8px 10px; text-align:left;
-      border-radius:4px; border:1px solid #d5dbe3; background:#fff;
-      cursor:pointer; font:inherit; font-size:12px; display:block;
-    }
-    .tool-btn + .tool-btn, .tool-btn + .size-row { margin-top:5px; }
-    .tool-btn:hover  { background:#f5f7fa; }
-    .tool-btn.active { background:#deeeff; border-color:#1a3a6b; color:#1a3a6b; }
+/* Layout */
+#main { flex:1; display:flex; min-height:0; overflow:hidden; }
 
-    .size-row { display:flex; align-items:center; gap:4px; padding:3px 0 1px; }
-    .dim-input { width:44px; padding:4px 4px; border:1px solid #d5dbe3; border-radius:4px; font:inherit; font-size:11px; text-align:center; }
-    .dim-sep   { font-size:11px; color:#777; }
-    .size-lbl  { font-size:11px; color:#666; flex:1; cursor:pointer; }
+/* Sidebar */
+#sidebar { width:240px; background:#fff; border-right:1px solid #d7dce3; overflow:auto; display:flex; flex-direction:column; }
+.section-head {
+  background:#1a3a6b; color:#fff; font-size:10px;
+  text-transform:uppercase; letter-spacing:.08em; padding:7px 12px; font-weight:700;
+}
+.section-body { padding:8px 10px; border-bottom:1px solid #eef1f4; }
+.tool-btn {
+  width:100%; margin-bottom:0; padding:8px 10px; text-align:left;
+  border-radius:4px; border:1px solid #d5dbe3; background:#fff;
+  cursor:pointer; font:inherit; font-size:12px; display:block;
+}
+.tool-btn + .tool-btn, .tool-btn + .size-row { margin-top:5px; }
+.tool-btn:hover  { background:#f5f7fa; }
+.tool-btn.active { background:#deeeff; border-color:#1a3a6b; color:#1a3a6b; }
 
-    .toggle-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; font-size:12px; }
+.size-row { display:flex; align-items:center; gap:4px; padding:3px 0 1px; }
+.dim-input { width:44px; padding:4px 4px; border:1px solid #d5dbe3; border-radius:4px; font:inherit; font-size:10px; text-align:center; }
+.dim-sep   { font-size:10px; color:#000; }
+.size-lbl  { font-size:10px; color:#000; flex:1; cursor:pointer; }
 
-    /* Map */
-    #map-wrap { flex:1; position:relative; min-width:0; }
-    #viewDiv  { width:100%; height:100%; }
+.toggle-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; font-size:12px; }
 
-    #loading {
-      position:absolute; inset:0; background:rgba(255,255,255,.92); z-index:20;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
-    }
-    #loading.hidden { display:none; }
+/* Map */
+#map-wrap { flex:1; position:relative; min-width:0; }
+#viewDiv  { width:100%; height:100%; }
 
-    #parcel-badge, #measure-box {
-      position:absolute; left:12px;
-      background:rgba(255,255,255,.96); border:1px solid #d5dbe3; border-left:3px solid #1a3a6b;
-      border-radius:5px; z-index:10; box-shadow:0 2px 6px rgba(0,0,0,.08);
-    }
-    #parcel-badge { top:12px; padding:8px 10px; max-width:320px; display:none; }
-    #measure-box  { bottom:40px; padding:8px 10px; min-width:200px; display:none; }
+#loading {
+  position:absolute; inset:0; background:rgba(255,255,255,.92); z-index:20;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+}
+#loading.hidden { display:none; }
 
-    .pb-addr { font-size:12px; font-weight:700; color:#1a3a6b; }
-    .pb-sub  { font-size:11px; color:#666; margin-top:2px; }
-    .ms-label { font-size:10px; text-transform:uppercase; color:#777; letter-spacing:.05em; }
-    .ms-main  { font-size:17px; font-weight:700; color:#1a3a6b; }
-    .ms-sub   { font-size:11px; color:#555; }
+#parcel-badge, #measure-box {
+  position:absolute; left:12px;
+  background:rgba(255,255,255,.96); border:1px solid #d5dbe3; border-left:3px solid #1a3a6b;
+  border-radius:5px; z-index:10; box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+#parcel-badge { top:12px; padding:8px 10px; max-width:320px; display:none; }
+#measure-box  { bottom:40px; padding:8px 10px; min-width:200px; display:none; }
 
-    /* Status bar */
-    #statusbar {
-      height:28px; background:#f1f3f6; border-top:1px solid #d7dce3;
-      display:flex; align-items:center; gap:10px; padding:0 12px; color:#6b7280; font-size:11px;
-    }
-    #statusdot { width:7px; height:7px; border-radius:50%; background:#9ca3af; }
+.pb-addr { font-size:12px; font-weight:700; color:#1a3a6b; }
+.pb-sub  { font-size:10px; color:#000; margin-top:2px; }
+.ms-label { font-size:10px; text-transform:uppercase; color:#000; letter-spacing:.05em; }
+.ms-main  { font-size:17px; font-weight:700; color:#1a3a6b; }
+.ms-sub   { font-size:10px; color:#000; }
+
+/* Status bar */
+#statusbar {
+  height:28px; background:#f1f3f6; border-top:1px solid #d7dce3;
+  display:flex; align-items:center; gap:10px; padding:0 12px; color:#000; font-size:10px;
+}
+#statusdot { width:7px; height:7px; border-radius:50%; background:#9ca3af; }
+
+/* ── Right info panel ─────────────────────────────────── */
+#info-panel {
+  width:192px; background:#fff; border-left:1px solid #d7dce3;
+  display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0;
+}
+.ip-head {
+  background:#1a3a6b; color:#fff; font-size:10px;
+  text-transform:uppercase; letter-spacing:.08em;
+  padding:7px 10px; font-weight:700;
+}
+.ip-body { padding:8px 10px; border-bottom:1px solid #eef1f4; }
+.ip-row { display:flex; flex-direction:column; margin-bottom:7px; }
+.ip-row:last-child { margin-bottom:0; }
+.ip-label { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#000; font-weight:600; }
+.ip-value { font-size:12px; color:#1a1f2e; font-weight:500; margin-top:1px; }
+.ip-empty { font-size:10px; color:#000; font-style:italic; padding:8px 10px; }
+.ca-item {
+  display:flex; align-items:flex-start; gap:6px;
+  font-size:11px; color:#1a1f2e; margin-bottom:5px; line-height:1.3;
+}
+.ca-item:last-child { margin-bottom:0; }
+.ca-dot {
+  width:7px; height:7px; border-radius:50%; background:#e85b2a;
+  flex-shrink:0; margin-top:3px;
+}
+```
+
   </style>
 </head>
 <body>
@@ -102,189 +153,218 @@
   <div id="main">
     <div id="sidebar">
 
-      <!-- STRUCTURES -->
-      <div class="section-head">Structures</div>
-      <div class="section-body">
-        <button class="tool-btn draw-tool-btn" id="btn-proposed" onclick="startStructure('proposed')">Proposed structure</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-proposed" />
-          <label for="chk-proposed" class="size-lbl">Fixed size</label>
-          <input id="proposed-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="proposed-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-        <button class="tool-btn draw-tool-btn" id="btn-existing" onclick="startStructure('existing')" style="margin-top:7px;">Existing structure</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-existing" />
-          <label for="chk-existing" class="size-lbl">Fixed size</label>
-          <input id="existing-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="existing-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-      </div>
+```
+  <!-- STRUCTURES -->
+  <div class="section-head">Structures</div>
+  <div class="section-body">
+    <button class="tool-btn draw-tool-btn" id="btn-proposed" onclick="startStructure('proposed')">Proposed structure</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-proposed" />
+      <label for="chk-proposed" class="size-lbl">Fixed size</label>
+      <input id="proposed-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="proposed-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
+      <span class="dim-sep">ft</span>
+    </div>
+    <button class="tool-btn draw-tool-btn" id="btn-existing" onclick="startStructure('existing')" style="margin-top:7px;">Existing structure</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-existing" />
+      <label for="chk-existing" class="size-lbl">Fixed size</label>
+      <input id="existing-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="existing-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
+      <span class="dim-sep">ft</span>
+    </div>
+  </div>
 
-      <!-- WELL & SEPTIC -->
-      <div class="section-head">Well &amp; Septic</div>
-      <div class="section-body">
-        <button class="tool-btn draw-tool-btn" id="btn-well" onclick="startWellTool()">Well + 100&apos; buffer</button>
+  <!-- WELL & SEPTIC -->
+  <div class="section-head">Well &amp; Septic</div>
+  <div class="section-body">
+    <button class="tool-btn draw-tool-btn" id="btn-well" onclick="startWellTool()">Well + 100&apos; buffer</button>
 
-        <button class="tool-btn draw-tool-btn" id="btn-septic" onclick="startSepticTool()" style="margin-top:7px;">Septic tank</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-septic" checked />
-          <label for="chk-septic" class="size-lbl">Fixed size</label>
-          <input id="septic-l" type="number" min="0.1" step="0.1" value="5.5" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="septic-w" type="number" min="1" step="1" value="10" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-
-        <button class="tool-btn draw-tool-btn" id="btn-drainfield" onclick="startDrainfieldTool(false)" style="margin-top:7px;">Drainfield</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-drainfield" />
-          <label for="chk-drainfield" class="size-lbl">Fixed size</label>
-          <input id="df-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="df-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-
-        <button class="tool-btn draw-tool-btn" id="btn-reserve" onclick="startDrainfieldTool(true)" style="margin-top:7px;">Reserve drainfield</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-reserve" />
-          <label for="chk-reserve" class="size-lbl">Fixed size</label>
-          <input id="rv-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="rv-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-
-        <button class="tool-btn draw-tool-btn" id="btn-septicline" onclick="startSepticLineTool()" style="margin-top:7px;">Septic line</button>
-      </div>
-
-      <!-- DRAW TOOLS -->
-      <div class="section-head">Draw tools</div>
-      <div class="section-body">
-
-        <button class="tool-btn draw-tool-btn" id="btn-setback" onclick="startSetbackTool()">Setback / Distance</button>
-
-        <button class="tool-btn draw-tool-btn" id="btn-grading" onclick="startGradingTool()" style="margin-top:5px;">Proposed Grading</button>
-
-        <button class="tool-btn draw-tool-btn" id="btn-easement" onclick="startEasementTool()" style="margin-top:5px;">Easement</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-easement" />
-          <label for="chk-easement" class="size-lbl">Fixed size</label>
-          <input id="easement-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="easement-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-
-        <button class="tool-btn draw-tool-btn" id="btn-line" onclick="startLineTool()" style="margin-top:5px;">Line</button>
-
-        <button class="tool-btn draw-tool-btn" id="btn-polygon" onclick="startDrawTool('polygon')" style="margin-top:5px;">Polygon</button>
-
-        <button class="tool-btn draw-tool-btn" id="btn-rectangle" onclick="startDrawTool('rectangle')" style="margin-top:5px;">Rectangle</button>
-        <div class="size-row">
-          <input type="checkbox" id="chk-rect" />
-          <label for="chk-rect" class="size-lbl">Fixed size</label>
-          <input id="rect-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
-          <span class="dim-sep">×</span>
-          <input id="rect-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
-          <span class="dim-sep">ft</span>
-        </div>
-
-        <div style="display:flex;gap:5px;margin-top:5px;">
-          <button class="tool-btn draw-tool-btn" id="btn-callout" onclick="startCalloutTool()" style="flex:1;margin:0;">Callout</button>
-          <button class="tool-btn draw-tool-btn" id="btn-text"    onclick="startTextTool()"    style="flex:1;margin:0;">Text</button>
-        </div>
-        <input id="text-input" type="text" placeholder="Text / callout label"
-          style="width:100%;margin-top:5px;padding:6px 8px;border:1px solid #d5dbe3;border-radius:4px;font:inherit;font-size:12px;" />
-      </div>
-
-      <!-- LEGEND -->
-      <div class="section-head">Legend</div>
-      <div class="section-body" style="font-size:12px;line-height:1.85;color:#555;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:24px;height:0;border-top:3px solid #c80000;flex-shrink:0;"></span>Proposed structure
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:24px;height:0;border-top:2.5px dashed #444;flex-shrink:0;"></span>Existing structure
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
-          <span style="display:inline-block;width:10px;height:10px;background:#fff;border:2px solid #000;border-radius:50%;flex-shrink:0;"></span>Well
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:24px;height:0;border-top:1.5px dashed #666;flex-shrink:0;"></span>100&apos; well buffer
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:14px;height:11px;background:rgba(0,140,60,0.22);border:1.5px solid #005a1e;flex-shrink:0;"></span>Septic tank
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="24" height="18" style="flex-shrink:0;" xmlns="http://www.w3.org/2000/svg">
-            <line x1="6"  y1="4" x2="18" y2="4"  stroke="#006e2d" stroke-width="1.5"/>
-            <line x1="6"  y1="4" x2="6"  y2="18" stroke="#006e2d" stroke-width="1"/>
-            <line x1="12" y1="4" x2="12" y2="18" stroke="#006e2d" stroke-width="1"/>
-            <line x1="18" y1="4" x2="18" y2="18" stroke="#006e2d" stroke-width="1"/>
-          </svg>Drainfield
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="24" height="18" style="flex-shrink:0;" xmlns="http://www.w3.org/2000/svg">
-            <line x1="6"  y1="4" x2="18" y2="4"  stroke="#006e2d" stroke-width="1.5" stroke-dasharray="4,2"/>
-            <line x1="6"  y1="4" x2="6"  y2="18" stroke="#006e2d" stroke-width="1"   stroke-dasharray="4,2"/>
-            <line x1="12" y1="4" x2="12" y2="18" stroke="#006e2d" stroke-width="1"   stroke-dasharray="4,2"/>
-            <line x1="18" y1="4" x2="18" y2="18" stroke="#006e2d" stroke-width="1"   stroke-dasharray="4,2"/>
-          </svg>Reserve drainfield
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:14px;height:11px;
-            background:repeating-linear-gradient(135deg,rgba(160,100,0,0.65) 0,rgba(160,100,0,0.65) 2px,transparent 2px,transparent 6px);
-            border:1.5px solid #6e4100;flex-shrink:0;"></span>Proposed Grading
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:14px;height:11px;
-            background:repeating-linear-gradient(0deg,rgba(0,80,180,0.45) 0,rgba(0,80,180,0.45) 2px,transparent 2px,transparent 5px);
-            border:1.5px solid #003296;flex-shrink:0;"></span>Easement
-        </div>
-      </div>
-
-      <!-- EDITING -->
-      <div class="section-head">Editing</div>
-      <div class="section-body">
-        <div class="toggle-row">
-          <label for="snap-toggle">Snapping on</label>
-          <input type="checkbox" id="snap-toggle" checked onchange="toggleSnapping(this.checked)" />
-        </div>
-      </div>
-
-      <div class="section-head">Instructions</div>
-      <div class="section-body" style="font-size:12px;line-height:1.45;color:#555;">
-        Placeholder — to be updated after setup is complete.
-      </div>
+    <button class="tool-btn draw-tool-btn" id="btn-septic" onclick="startSepticTool()" style="margin-top:7px;">Septic tank</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-septic" checked />
+      <label for="chk-septic" class="size-lbl">Fixed size</label>
+      <input id="septic-l" type="number" min="0.1" step="0.1" value="5.5" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="septic-w" type="number" min="1" step="1" value="10" class="dim-input" />
+      <span class="dim-sep">ft</span>
     </div>
 
-    <!-- MAP -->
-    <div id="map-wrap">
-      <div id="viewDiv"></div>
-
-      <div id="loading">
-        <div style="font-size:14px;font-weight:700;color:#1a3a6b;">Loading your parcel…</div>
-        <div style="font-size:12px;color:#777;">Please wait</div>
-      </div>
-
-      <div id="parcel-badge">
-        <div class="pb-addr" id="pb-addr">—</div>
-        <div class="pb-sub"  id="pb-owner"></div>
-        <div class="pb-sub"  id="pb-geo"></div>
-      </div>
-
-      <div id="measure-box">
-        <div class="ms-label" id="ms-label">Selected shape</div>
-        <div class="ms-main"  id="ms-main">—</div>
-        <div class="ms-sub"   id="ms-sub"></div>
-      </div>
+    <button class="tool-btn draw-tool-btn" id="btn-drainfield" onclick="startDrainfieldTool(false)" style="margin-top:7px;">Drainfield</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-drainfield" />
+      <label for="chk-drainfield" class="size-lbl">Fixed size</label>
+      <input id="df-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="df-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
+      <span class="dim-sep">ft</span>
     </div>
+
+    <button class="tool-btn draw-tool-btn" id="btn-reserve" onclick="startDrainfieldTool(true)" style="margin-top:7px;">Reserve drainfield</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-reserve" />
+      <label for="chk-reserve" class="size-lbl">Fixed size</label>
+      <input id="rv-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="rv-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
+      <span class="dim-sep">ft</span>
+    </div>
+
+    <button class="tool-btn draw-tool-btn" id="btn-septicline" onclick="startSepticLineTool()" style="margin-top:7px;">Septic line</button>
+  </div>
+
+  <!-- DRAW TOOLS -->
+  <div class="section-head">Draw tools</div>
+  <div class="section-body">
+
+    <button class="tool-btn draw-tool-btn" id="btn-setback" onclick="startSetbackTool()">Setback / Distance</button>
+
+    <button class="tool-btn draw-tool-btn" id="btn-grading" onclick="startGradingTool()" style="margin-top:5px;">Proposed Grading</button>
+
+    <button class="tool-btn draw-tool-btn" id="btn-easement" onclick="startEasementTool()" style="margin-top:5px;">Easement</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-easement" />
+      <label for="chk-easement" class="size-lbl">Fixed size</label>
+      <input id="easement-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="easement-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
+      <span class="dim-sep">ft</span>
+    </div>
+
+    <button class="tool-btn draw-tool-btn" id="btn-line" onclick="startLineTool()" style="margin-top:5px;">Line</button>
+
+    <button class="tool-btn draw-tool-btn" id="btn-polygon" onclick="startDrawTool('polygon')" style="margin-top:5px;">Polygon</button>
+
+    <button class="tool-btn draw-tool-btn" id="btn-rectangle" onclick="startDrawTool('rectangle')" style="margin-top:5px;">Rectangle</button>
+    <div class="size-row">
+      <input type="checkbox" id="chk-rect" />
+      <label for="chk-rect" class="size-lbl">Fixed size</label>
+      <input id="rect-l" type="number" min="1" step="1" placeholder="L" class="dim-input" />
+      <span class="dim-sep">×</span>
+      <input id="rect-w" type="number" min="1" step="1" placeholder="W" class="dim-input" />
+      <span class="dim-sep">ft</span>
+    </div>
+
+    <div style="display:flex;gap:5px;margin-top:5px;">
+      <button class="tool-btn draw-tool-btn" id="btn-callout" onclick="startCalloutTool()" style="flex:1;margin:0;">Callout</button>
+      <button class="tool-btn draw-tool-btn" id="btn-text"    onclick="startTextTool()"    style="flex:1;margin:0;">Text</button>
+    </div>
+    <input id="text-input" type="text" placeholder="Text / callout label"
+      style="width:100%;margin-top:5px;padding:6px 8px;border:1px solid #d5dbe3;border-radius:4px;font:inherit;font-size:12px;" />
+  </div>
+
+  <!-- LEGEND -->
+  <div class="section-head">Legend</div>
+  <div class="section-body" style="font-size:12px;line-height:1.85;color:#000;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:24px;height:0;border-top:3px solid #c80000;flex-shrink:0;"></span>Proposed structure
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:24px;height:0;border-top:2.5px dashed #444;flex-shrink:0;"></span>Existing structure
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+      <span style="display:inline-block;width:10px;height:10px;background:#fff;border:2px solid #000;border-radius:50%;flex-shrink:0;"></span>Well
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:24px;height:0;border-top:1.5px dashed #666;flex-shrink:0;"></span>100&apos; well buffer
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:14px;height:11px;background:rgba(0,140,60,0.22);border:1.5px solid #005a1e;flex-shrink:0;"></span>Septic tank
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <svg width="24" height="18" style="flex-shrink:0;" xmlns="http://www.w3.org/2000/svg">
+        <line x1="6"  y1="4" x2="18" y2="4"  stroke="#006e2d" stroke-width="1.5"/>
+        <line x1="6"  y1="4" x2="6"  y2="18" stroke="#006e2d" stroke-width="1"/>
+        <line x1="12" y1="4" x2="12" y2="18" stroke="#006e2d" stroke-width="1"/>
+        <line x1="18" y1="4" x2="18" y2="18" stroke="#006e2d" stroke-width="1"/>
+      </svg>Drainfield
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <svg width="24" height="18" style="flex-shrink:0;" xmlns="http://www.w3.org/2000/svg">
+        <line x1="6"  y1="4" x2="18" y2="4"  stroke="#006e2d" stroke-width="1.5" stroke-dasharray="4,2"/>
+        <line x1="6"  y1="4" x2="6"  y2="18" stroke="#006e2d" stroke-width="1"   stroke-dasharray="4,2"/>
+        <line x1="12" y1="4" x2="12" y2="18" stroke="#006e2d" stroke-width="1"   stroke-dasharray="4,2"/>
+        <line x1="18" y1="4" x2="18" y2="18" stroke="#006e2d" stroke-width="1"   stroke-dasharray="4,2"/>
+      </svg>Reserve drainfield
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:14px;height:11px;
+        background:repeating-linear-gradient(135deg,rgba(160,100,0,0.65) 0,rgba(160,100,0,0.65) 2px,transparent 2px,transparent 6px);
+        border:1.5px solid #6e4100;flex-shrink:0;"></span>Proposed Grading
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:14px;height:11px;
+        background:repeating-linear-gradient(0deg,rgba(0,80,180,0.45) 0,rgba(0,80,180,0.45) 2px,transparent 2px,transparent 5px);
+        border:1.5px solid #003296;flex-shrink:0;"></span>Easement
+    </div>
+  </div>
+
+  <!-- EDITING -->
+  <div class="section-head">Editing</div>
+  <div class="section-body">
+    <div class="toggle-row">
+      <label for="snap-toggle">Snapping on</label>
+      <input type="checkbox" id="snap-toggle" checked onchange="toggleSnapping(this.checked)" />
+    </div>
+  </div>
+
+  <div class="section-head">Instructions</div>
+  <div class="section-body" style="font-size:12px;line-height:1.45;color:#000;">
+    Placeholder — to be updated after setup is complete.
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-wrap">
+  <div id="viewDiv"></div>
+
+  <!-- Basemap toggle -->
+  <div id="basemap-toggle">
+    <button class="bm-btn active" id="bm-osm" onclick="switchBasemap('osm',this)" title="OpenStreetMap">
+      <img class="bm-thumb" src="https://www.arcgis.com/sharing/rest/content/items/3d1a30626bbc46c582f148b9252676ce/info/thumbnail/thumbnail1553791433520.png" alt="" onerror="this.style.background='#b5cfa5'">
+      <span class="bm-label">Streets</span>
+    </button>
+    <button class="bm-btn" id="bm-topographic" onclick="switchBasemap('topographic',this)" title="Topographic">
+      <img class="bm-thumb" src="https://www.arcgis.com/sharing/rest/content/items/d5e02a0c1f2b4ec399823fdd3c2fdebd/info/thumbnail/thumbnail.jpg" alt="" onerror="this.style.background='#d4c5a9'">
+      <span class="bm-label">Topo</span>
+    </button>
+    <button class="bm-btn" id="bm-imagery" onclick="switchBasemap('imagery',this)" title="Imagery">
+      <img class="bm-thumb" src="https://www.arcgis.com/sharing/rest/content/items/10df2279f9684e4a9f6a7f08febac2a9/info/thumbnail/thumbnail.jpg" alt="" onerror="this.style.background='#4a6741'">
+      <span class="bm-label">Imagery</span>
+    </button>
+  </div>
+
+  <div id="loading">
+    <div style="font-size:14px;font-weight:700;color:#1a3a6b;">Loading your parcel…</div>
+    <div style="font-size:12px;color:#000;">Please wait</div>
+  </div>
+
+  <div id="parcel-badge">
+    <div class="pb-addr" id="pb-addr">—</div>
+    <div class="pb-sub"  id="pb-owner"></div>
+    <div class="pb-sub"  id="pb-geo"></div>
+  </div>
+
+  <div id="measure-box">
+    <div class="ms-label" id="ms-label">Selected shape</div>
+    <div class="ms-main"  id="ms-main">—</div>
+    <div class="ms-sub"   id="ms-sub"></div>
+  </div>
+</div>
+
+<!-- RIGHT INFO PANEL -->
+<div id="info-panel">
+  <div class="ip-head">Parcel Info</div>
+  <div class="ip-body" id="ip-basic">
+    <div class="ip-empty">Load a parcel to view details.</div>
+  </div>
+  <div class="ip-head" id="ip-ca-head" style="display:none;">⚠ Critical Areas</div>
+  <div class="ip-body" id="ip-ca" style="display:none;"></div>
+</div>
+```
+
   </div>
 
   <div id="statusbar">
@@ -320,8 +400,8 @@
     const cfg = window.SitePlanConfig;
     if (!cfg || !cfg.layers || !cfg.layers.parcels) { setStatus('Config failed.', false); return; }
 
-    document.getElementById('agency').textContent = cfg.branding.countyName;
-    document.getElementById('title').textContent  = cfg.branding.agencyName + ' · ' + cfg.branding.toolTitle;
+    document.getElementById('agency').textContent = cfg.branding.countyName + ' ' + cfg.branding.agencyName;
+    document.getElementById('title').textContent  = cfg.branding.toolTitle;
 
     const pf = cfg.layers.parcels.popupFields;
     let selectedParcelGeometry = null;
@@ -356,6 +436,13 @@
     });
     view.ui.add(new Home({ view }), 'top-left');
     view.ui.add(new ScaleBar({ view, unit:'dual' }), 'bottom-right');
+
+    window.switchBasemap = function (id, btn) {
+      map.basemap = id;
+      document.querySelectorAll('.bm-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setStatus('Basemap: ' + btn.title);
+    };
 
     const sketch = new Sketch({
       view, layer:drawLayer, updateOnGraphicClick:true, creationMode:'update',
@@ -409,6 +496,9 @@
       }
     };
 
+    // Drainfield polygon: just the boundary outline.
+    // Interior lines (header + 3 laterals) are separate computed graphics
+    // so they always stay exactly 1 header + 3 laterals regardless of polygon size.
     function drainfieldSym(isReserve) {
       return {
         type: 'simple-fill',
@@ -417,36 +507,48 @@
       };
     }
 
+    // Build the 4 overlay graphics (1 header + 3 laterals) for a drainfield polygon.
+    // Lines sit inside the polygon boundary with a small inset margin.
+    // ── Drainfield geometry ───────────────────────────────────
+    // Works in local polygon space so lines stay correct after rotation.
     function calcDrainfieldLines(polygon) {
       const ring = polygon.rings[0];
       const pts  = ring.slice(0, 4).map(p => ({ x:p[0], y:p[1] }));
 
+      // Identify short edges (header direction) vs long edges (lateral direction)
       const d01 = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
       const d12 = Math.hypot(pts[2].x-pts[1].x, pts[2].y-pts[1].y);
 
+      // A-B = one short end,  D-C = opposite short end
+      // Laterals run A→D and B→C
       let A, B, C, D;
       if (d01 <= d12) { A=pts[0]; B=pts[1]; C=pts[2]; D=pts[3]; }
       else            { A=pts[1]; B=pts[2]; C=pts[3]; D=pts[0]; }
 
+      // Make A-B the "top" end (higher average Y = further north)
       if ((A.y + B.y) < (D.y + C.y)) { [A,B,C,D] = [D,C,B,A]; }
 
+      // Interpolate along the two long edges at parameter t (0=top, 1=bottom)
       function alongLong(t) {
         return {
           left:  { x: A.x + t*(D.x-A.x), y: A.y + t*(D.y-A.y) },
           right: { x: B.x + t*(C.x-B.x), y: B.y + t*(C.y-B.y) }
         };
       }
+      // Interpolate across the short edge at parameter u (0=left, 1=right)
       function acrossShort(L, R, u) {
         return { x: L.x + u*(R.x-L.x), y: L.y + u*(R.y-L.y) };
       }
 
       const margin = 0.10;
-      const topRow = alongLong(margin);
-      const botRow = alongLong(1 - margin);
+      const topRow = alongLong(margin);        // header sits here
+      const botRow = alongLong(1 - margin);    // laterals end here
 
+      // Header spans outer two laterals (25 %–75 %)
       const hStart = acrossShort(topRow.left, topRow.right, 0.25);
       const hEnd   = acrossShort(topRow.left, topRow.right, 0.75);
 
+      // 3 laterals at 25 %, 50 %, 75 %
       const laterals = [0.25, 0.50, 0.75].map(u => {
         const top = acrossShort(topRow.left, topRow.right, u);
         const bot = acrossShort(botRow.left, botRow.right, u);
@@ -496,7 +598,7 @@
     function textSym(text, size) {
       return {
         type:'text', text, color:[255,255,255,1], haloColor:[0,0,0,1], haloSize:3,
-        font:{size:size||12,weight:'bold',family:'Segoe UI, Arial, sans-serif'},
+        font:{size:size||9,weight:'bold',family:'Calibri, Segoe UI, Arial, sans-serif'},
         horizontalAlignment:'center', verticalAlignment:'middle'
       };
     }
@@ -509,7 +611,7 @@
     function calloutTextSym(text) {
       return {
         type:'text', text, color:[255,255,255,1], haloColor:[0,0,0,1], haloSize:3,
-        font:{size:13,weight:'bold',family:'Segoe UI, Arial, sans-serif'},
+        font:{size:9,weight:'bold',family:'Calibri, Segoe UI, Arial, sans-serif'},
         horizontalAlignment:'left', verticalAlignment:'bottom', xoffset:8, yoffset:8
       };
     }
@@ -517,11 +619,9 @@
       return {type:'simple-marker',style:'circle',color:[80,80,80,1],size:9,outline:{color:[0,0,0,0.5],width:1}};
     }
 
-    function getPrintTextSize(scale) {
-      if (!scale) return 10;
-      if (scale<=1200) return 11; if (scale<=2500) return 10; if (scale<=5000) return 9; return 8;
-    }
-    function getPrintHaloSize(scale) { return (!scale||scale<=2500) ? 2.25 : 1.75; }
+    // ── Print text scaling ────────────────────────────────────
+    function getPrintTextSize(scale) { return 9; }
+    function getPrintHaloSize(scale) { return 2; }
 
     function applyPrintTextStyles() {
       const scale = view.scale, size = getPrintTextSize(scale), halo = getPrintHaloSize(scale);
@@ -533,7 +633,7 @@
         const old = g.symbol;
         g.symbol = {
           type:'text', text:old.text, color:[255,255,255,1], haloColor:[0,0,0,1], haloSize:halo,
-          font:{size,weight:(old.font&&old.font.weight)||'bold',family:(old.font&&old.font.family)||'Segoe UI, Arial, sans-serif'},
+          font:{size,weight:(old.font&&old.font.weight)||'bold',family:(old.font&&old.font.family)||'Calibri, Segoe UI, Arial, sans-serif'},
           horizontalAlignment:old.horizontalAlignment||'center', verticalAlignment:old.verticalAlignment||'middle',
           xoffset:old.xoffset||0, yoffset:old.yoffset||0
         };
@@ -544,6 +644,7 @@
       (originals||[]).forEach(item => { if (item&&item.graphic&&item.symbol) item.graphic.symbol=item.symbol; });
     }
 
+    // ── Measure box ───────────────────────────────────────────
     function showMeasure(label, main, sub) {
       document.getElementById('ms-label').textContent = label;
       document.getElementById('ms-main').textContent  = main;
@@ -551,6 +652,7 @@
       document.getElementById('measure-box').style.display = 'block';
     }
 
+    // ── Line labels (setback / distance) ─────────────────────
     function createOrUpdateLineLabel(graphic) {
       if (!graphic||!graphic.geometry||graphic.geometry.type!=='polyline') return;
       const id = graphic.__sitePlanId || ('line_'+Date.now()+'_'+Math.random().toString(36).slice(2));
@@ -562,7 +664,7 @@
       else {
         lbl = new Graphic({ geometry:mid, symbol:{
           type:'text',text:length,color:[255,255,255,1],haloColor:[0,0,0,1],haloSize:3,
-          font:{size:12,weight:'bold',family:'Segoe UI, Arial, sans-serif'},yoffset:-10
+          font:{size:9,weight:'bold',family:'Calibri, Segoe UI, Arial, sans-serif'},yoffset:-10
         }});
         labelLayer.add(lbl); lineLabelMap.set(id,lbl);
       }
@@ -574,12 +676,14 @@
       if (lbl) { labelLayer.remove(lbl); lineLabelMap.delete(id); }
     }
 
+    // ── Circle builder (well buffer) ──────────────────────────
     function circlePolygon(center, radiusFt) {
       const r=radiusFt*0.3048, n=72, rings=[];
       for (let i=0;i<=n;i++) { const a=(i/n)*2*Math.PI; rings.push([center.x+r*Math.cos(a),center.y+r*Math.sin(a)]); }
       return new Polygon({rings:[rings],spatialReference:center.spatialReference});
     }
 
+    // ── Well graphics sync (on move) ──────────────────────────
     function syncWell(center, wellId) {
       const r = 100*0.3048;
       const buf = drawLayer.graphics.find(x=>x.__wellId===wellId&&x.__wellRole==='buffer');
@@ -591,6 +695,7 @@
       if (lbl) lbl.geometry = {type:'point',x:center.x,y:center.y+r*0.52,spatialReference:center.spatialReference};
     }
 
+    // ── Fixed-size rect builder ───────────────────────────────
     function buildRect(center, lFt, wFt) {
       const m=0.3048, hl=(lFt*m)/2, hw=(wFt*m)/2, x=center.x, y=center.y;
       return new Polygon({
@@ -609,6 +714,7 @@
       showMeasure(extraProps.__label||'Shape', Math.round(sq).toLocaleString()+' sq ft', lFt+' × '+wFt+' ft');
     }
 
+    // ── Tool helpers ──────────────────────────────────────────
     function deactivateAll() {
       document.querySelectorAll('.draw-tool-btn').forEach(b=>b.classList.remove('active'));
     }
@@ -621,6 +727,7 @@
       if (btnId) activateBtn(btnId);
     }
 
+    // ── STRUCTURE TOOL ────────────────────────────────────────
     window.startStructure = function (type) {
       cancelAndReset('btn-'+type);
       const sym = type==='existing' ? SYM.existing : SYM.proposed;
@@ -644,13 +751,14 @@
       }
     };
 
+    // ── WELL TOOL ─────────────────────────────────────────────
     window.startWellTool = function () {
       cancelAndReset('btn-well');
       const h=view.on('click',ev=>{
         h.remove(); deactivateAll();
         const center=ev.mapPoint;
         const wellId='well_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-        const r=100*0.3048;
+        const r=100*0.3048; // 100 ft in metres
 
         const marker=new Graphic({geometry:center,symbol:{
           type:'simple-marker',style:'circle',color:[255,255,255,1],size:10,
@@ -664,6 +772,7 @@
         }});
         buffer.__wellId=wellId; buffer.__wellRole='buffer';
 
+        // Single radial spoke pointing north
         const spoke=new Graphic({
           geometry:{type:'polyline',spatialReference:center.spatialReference,
             paths:[[[center.x,center.y],[center.x,center.y+r]]]},
@@ -671,10 +780,11 @@
         });
         spoke.__wellId=wellId; spoke.__wellRole='spoke_0';
 
+        // Label runs parallel to the spoke — rotated 90° so it reads sideways
         const bufLbl=new Graphic({
           geometry:{type:'point',x:center.x,y:center.y+r*0.52,spatialReference:center.spatialReference},
           symbol:{type:'text',text:"R100' Well Buffer",color:[255,255,255,1],haloColor:[80,80,80,1],haloSize:2,
-            font:{size:9,weight:'bold',family:'Segoe UI, Arial, sans-serif'},
+            font:{size:9,weight:'bold',family:'Calibri, Segoe UI, Arial, sans-serif'},
             angle:90, horizontalAlignment:'center', xoffset:10}
         });
         bufLbl.__wellId=wellId; bufLbl.__wellRole='bufferLabel';
@@ -687,6 +797,7 @@
       setStatus('Click the map to place the well.');
     };
 
+    // ── SEPTIC TANK TOOL ──────────────────────────────────────
     window.startSepticTool = function () {
       cancelAndReset('btn-septic');
       const useFixed = document.getElementById('chk-septic').checked;
@@ -708,6 +819,7 @@
       }
     };
 
+    // ── DRAINFIELD TOOL ───────────────────────────────────────
     window.startDrainfieldTool = function (isReserve) {
       const btnId = isReserve ? 'btn-reserve' : 'btn-drainfield';
       const chkId = isReserve ? 'chk-reserve' : 'chk-drainfield';
@@ -832,6 +944,7 @@
       setStatus('Click the map to place the text.');
     };
 
+    // ── CALLOUT TOOL ──────────────────────────────────────────
     function clearCalloutPreview() {
       previewLayer.removeAll();
       if (activeCalloutPreview&&activeCalloutPreview.moveHandle) activeCalloutPreview.moveHandle.remove();
@@ -893,12 +1006,14 @@
       lbl.geometry=anchor.geometry.clone?anchor.geometry.clone():anchor.geometry;
     }
 
+    // ── Sketch events ─────────────────────────────────────────
     sketch.on('create', ev => {
       if (ev.state!=='complete') return;
       const g=ev.graphic;
       const pt=sketch._pendingType;
       sketch._pendingType=null;
 
+      // Apply correct symbol for freehand draws
       if (pt==='proposed'||pt==='existing') {
         g.symbol=pt==='existing'?SYM.existing:SYM.proposed;
         g.__structureType=pt;
@@ -918,7 +1033,7 @@
         g.__isLine=true;
       } else if (pt==='septicline') {
         g.symbol=SYM.septicLine;
-        g.__isLine=true;
+        g.__isLine=true; // skip measurement label
       } else if (pt==='grading') {
         g.symbol=SYM.grading;
         g.__isGrading=true;
@@ -926,6 +1041,7 @@
         g.symbol=SYM.easement;
         g.__isEasement=true;
       } else {
+        // drawTool polygon/rectangle
         g.symbol=SYM.drawPoly;
       }
 
@@ -985,6 +1101,87 @@
       if ((e.key==='Delete'||e.key==='Backspace')&&sketch.updateGraphics&&sketch.updateGraphics.length) sketch.delete();
     });
 
+    // ── Toolbar buttons ───────────────────────────────────────
+
+    // ── Right info panel ──────────────────────────────────────
+    function populateInfoPanel(attrs) {
+      const f = (v, fallback) => {
+        const s = v == null ? '' : String(v).trim();
+        return s && s !== '0' && s.toLowerCase() !== 'null' ? s : (fallback || '—');
+      };
+      const fmtSetback = v => {
+        const s = v == null ? '' : String(v).trim();
+        return s && s !== '0' ? s + ' ft' : '—';
+      };
+
+      // ── Basic info rows ──────────────────────────────────
+      const zoning = f(attrs[pf.zoningAbbrev])!=='—'
+        ? f(attrs[pf.zoningAbbrev]) + (f(attrs[pf.zoningName])!=='—' ? ' – ' + f(attrs[pf.zoningName]) : '')
+        : f(attrs[pf.zoningName]);
+
+      const basicHtml = `
+        <div class="ip-row">
+          <span class="ip-label">Parcel Number</span>
+          <span class="ip-value">${f(attrs[pf.parcelNumber])}</span>
+        </div>
+        <div class="ip-row">
+          <span class="ip-label">Area</span>
+          <span class="ip-value">${f(attrs[pf.acreage])!=='—' ? parseFloat(attrs[pf.acreage]).toFixed(2) + ' ac' : '—'}</span>
+        </div>
+        <div class="ip-row">
+          <span class="ip-label">Zoning</span>
+          <span class="ip-value">${zoning}</span>
+        </div>
+        <div class="ip-row">
+          <span class="ip-label">Front Setback</span>
+          <span class="ip-value">${fmtSetback(attrs[pf.setbackFront])}</span>
+        </div>
+        <div class="ip-row">
+          <span class="ip-label">Side Setback</span>
+          <span class="ip-value">${fmtSetback(attrs[pf.setbackSide])}</span>
+        </div>
+        <div class="ip-row">
+          <span class="ip-label">Rear Setback</span>
+          <span class="ip-value">${fmtSetback(attrs[pf.setbackRear])}</span>
+        </div>`;
+      document.getElementById('ip-basic').innerHTML = basicHtml;
+
+      // ── Critical areas — only show non-NO values ──────────
+      const caFields = [
+        { label:'Flood Risk',          key: pf.caFloodRisk  },
+        { label:'Flood Zone',          key: pf.caFloodZone  },
+        { label:'CARA High Recharge',  key: pf.caCaraHigh   },
+        { label:'CARA Moderate',       key: pf.caCaraMod    },
+        { label:'Erosion Hazard',      key: pf.caErosion    },
+        { label:'Wetland',             key: pf.caWetland    },
+        { label:'Liquefaction',        key: pf.caLiquefaction },
+        { label:'Riparian Buffer',     key: pf.caRipName,   extra: pf.caRipBuffer },
+        { label:'Ferruginous Hawk',    key: pf.caHawkHab    },
+        { label:'Neotropical Songbird',key: pf.caSongbird   },
+        { label:'Wintering Birds',     key: pf.caWinterBirds}
+      ];
+
+      const isNo = v => !v || String(v).trim() === '' || String(v).trim().toUpperCase() === 'NO' || String(v).trim() === '0';
+
+      const caItems = caFields.filter(ca => !isNo(attrs[ca.key]));
+
+      const caHead = document.getElementById('ip-ca-head');
+      const caBody = document.getElementById('ip-ca');
+
+      if (caItems.length === 0) {
+        caHead.style.display = 'none';
+        caBody.style.display = 'none';
+      } else {
+        caHead.style.display = '';
+        caBody.style.display = '';
+        caBody.innerHTML = caItems.map(ca => {
+          let val = f(attrs[ca.key]);
+          if (ca.extra && !isNo(attrs[ca.extra])) val += ' (' + f(attrs[ca.extra]) + ' ft)';
+          return `<div class="ca-item"><span class="ca-dot"></span><span><strong>${ca.label}:</strong> ${val}</span></div>`;
+        }).join('');
+      }
+    }
+
     window.toggleSnapping = function (enabled) {
       sketch.snappingOptions.enabled=enabled;
       sketch.snappingOptions.selfEnabled=enabled;
@@ -1006,6 +1203,7 @@
       setStatus('All items cleared.');
     };
 
+    // ── Print ─────────────────────────────────────────────────
     window.printPlan = function () {
       setStatus('Preparing printable map image...');
       prePrintViewpoint = view.viewpoint ? view.viewpoint.clone() : null;
@@ -1098,7 +1296,7 @@ html, body {
   height: 8.5in;
   overflow: hidden;
   background: #ffffff;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Calibri, Arial, Helvetica, sans-serif;
   color: #111;
 }
 #sheet {
@@ -1205,7 +1403,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 8.6px;
+  font-size: 10px;
   line-height: 1.15;
   margin-bottom: 0.032in;
 }
@@ -1245,7 +1443,7 @@ html, body {
   display: grid;
   grid-template-columns: 0.82in 1fr;
   gap: 0.03in;
-  font-size: 8.6px;
+  font-size: 10px;
   line-height: 1.12;
   margin-bottom: 0.025in;
 }
@@ -1259,7 +1457,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   width: ${barPx}px;
-  font-size: 8px;
+  font-size: 10px;
   margin-bottom: 2px;
 }
 #scale-bar {
@@ -1290,7 +1488,7 @@ html, body {
   position: absolute;
   left: 0;
   top: 0.34in;
-  font-size: 8.5px;
+  font-size: 10px;
   white-space: nowrap;
 }
 #footer-left {
@@ -1300,7 +1498,7 @@ html, body {
   width: 8.78in;
   height: 1.08in;
   box-sizing: border-box;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.25;
   overflow: hidden;
 }
@@ -1315,6 +1513,7 @@ html, body {
   text-decoration: none;
 }
 </style></head><body>
+
 <div id="sheet">
   <div id="outer-border"></div>
 
@@ -1334,37 +1533,40 @@ html, body {
       ${legendHtml}
     </div>
 
-    <div id="property-box">
-      <div id="property-title">Property Information:</div>
-      <div class="table-row"><div class="label">Parcel Number:</div><div>${escHtml(geo)}</div></div>
-      <div class="table-row"><div class="label">Owner:</div><div>${escHtml(owner)}</div></div>
-      <div class="table-row"><div class="label">Address:</div><div>${escHtml(addr)}</div></div>
-      <div class="table-row"><div class="label">Zoning:</div><div>${escHtml(zoning)}</div></div>
-      <div class="table-row"><div class="label">Required Setbacks</div><div></div></div>
-      <div class="table-row"><div class="label">Front:</div><div>${escHtml(front)}</div></div>
-      <div class="table-row"><div class="label">Side:</div><div>${escHtml(side)}</div></div>
-      <div class="table-row"><div class="label">Rear:</div><div>${escHtml(rear)}</div></div>
-    </div>
+```
+<div id="property-box">
+  <div id="property-title">Property Information:</div>
+  <div class="table-row"><div class="label">Parcel Number:</div><div>${escHtml(geo)}</div></div>
+  <div class="table-row"><div class="label">Owner:</div><div>${escHtml(owner)}</div></div>
+  <div class="table-row"><div class="label">Address:</div><div>${escHtml(addr)}</div></div>
+  <div class="table-row"><div class="label">Zoning:</div><div>${escHtml(zoning)}</div></div>
+  <div class="table-row"><div class="label">Required Setbacks</div><div></div></div>
+  <div class="table-row"><div class="label">Front:</div><div>${escHtml(front)}</div></div>
+  <div class="table-row"><div class="label">Side:</div><div>${escHtml(side)}</div></div>
+  <div class="table-row"><div class="label">Rear:</div><div>${escHtml(rear)}</div></div>
+</div>
 
-    <div id="sidebar-bottom">
-      <div id="scale-wrap">
-        <div id="scale-labels">
-          <span>0</span>
-          <span>${Math.round(barFt/2)}</span>
-          <span>${barFt} Feet</span>
-        </div>
-        <div id="scale-bar">
-          <span class="scale-tick" style="left:${Math.round(barPx*0.125)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.25)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.375)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.5)}px; height:12px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.625)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.75)}px;"></span>
-          <span class="scale-tick" style="left:${Math.round(barPx*0.875)}px;"></span>
-        </div>
-        <div id="date-generated">Date generated: ${escHtml(dateGenerated)}</div>
-      </div>
+<div id="sidebar-bottom">
+  <div id="scale-wrap">
+    <div id="scale-labels">
+      <span>0</span>
+      <span>${Math.round(barFt/2)}</span>
+      <span>${barFt} Feet</span>
     </div>
+    <div id="scale-bar">
+      <span class="scale-tick" style="left:${Math.round(barPx*0.125)}px;"></span>
+      <span class="scale-tick" style="left:${Math.round(barPx*0.25)}px;"></span>
+      <span class="scale-tick" style="left:${Math.round(barPx*0.375)}px;"></span>
+      <span class="scale-tick" style="left:${Math.round(barPx*0.5)}px; height:12px;"></span>
+      <span class="scale-tick" style="left:${Math.round(barPx*0.625)}px;"></span>
+      <span class="scale-tick" style="left:${Math.round(barPx*0.75)}px;"></span>
+      <span class="scale-tick" style="left:${Math.round(barPx*0.875)}px;"></span>
+    </div>
+    <div id="date-generated">Date generated: ${escHtml(dateGenerated)}</div>
+  </div>
+</div>
+```
+
   </div>
 
   <div id="footer-left">
@@ -1388,76 +1590,89 @@ window.onafterprint = function(){ setTimeout(function(){ window.close(); }, 200)
         setStatus('Print window opened.', true);
       }
 
-      function captureAndOpen() {
-        const mapScale = view.scale || 2400;
-        const orig = applyPrintTextStyles();
-        view.takeScreenshot({ format:'png', quality:100, width:2200, height:1500 })
-          .then(r => openPrintWindow(r.dataUrl, mapScale))
-          .catch(err => { console.error(err); setStatus('Screenshot failed.', false); })
-          .finally(() => {
-            restoreTextStyles(orig);
-            if (prePrintViewpoint) view.goTo(prePrintViewpoint, { duration:0 }).catch(() => {});
-          });
-      }
-
-      if (!selectedParcelGeometry || !selectedParcelGeometry.extent) { setTimeout(captureAndOpen, 250); return; }
-      const ext = selectedParcelGeometry.extent.expand(1.03);
-      try { view.resize(); } catch (e) {}
-      setTimeout(() => {
-        view.goTo(ext, { duration:0 }).then(() => {
-          const wait = () => { if (!view.updating && view.stationary) setTimeout(captureAndOpen, 250); else requestAnimationFrame(wait); };
-          wait();
-        }).catch(() => setTimeout(captureAndOpen, 300));
-      }, 150);
-    };
-
-    view.when(() => {
-      refreshSnapSources();
-      setStatus('Map initialized',true);
-
-      if (!geoParam) {
-        document.getElementById('loading').classList.add('hidden');
-        setStatus('No parcel selected. Return to the portal and choose a parcel.',false);
-        return;
-      }
-      setStatus('Querying parcel '+geoParam+'...');
-
-      parcelLayer.queryFeatures({
-        where: pf.parcelNumber+" = '"+geoParam.replace(/'/g,"''")+"'",
-        outFields:['*'], returnGeometry:true
-      }).then(result=>{
-        if (!result.features||!result.features.length) {
-          document.getElementById('loading').classList.add('hidden');
-          setStatus('Parcel not found.',false); return;
-        }
-        const feature=result.features[0], attrs=feature.attributes;
-        selectedParcelGeometry=feature.geometry;
-        currentParcelAttrs=attrs;
-
-        highlightLayer.add(new Graphic({geometry:selectedParcelGeometry,symbol:{
-          type:'simple-fill',color:[255,215,0,0.08],
-          outline:{type:'simple-line',color:[230,184,0,1],width:3}
-        }}));
-
-        const addr=addrParam||attrs[pf.siteAddress]||'Address not on file';
-        const owner=ownParam||attrs[pf.ownerName]||'';
-        document.getElementById('pb-addr').textContent  = addr;
-        document.getElementById('pb-owner').textContent = owner?'Owner: '+owner:'';
-        document.getElementById('pb-geo').textContent   = 'Parcel: '+geoParam;
-        document.getElementById('parcel-badge').style.display='block';
-        refreshSnapSources();
-        return view.goTo(selectedParcelGeometry.extent.expand(1.18),{duration:800});
-      }).then(()=>{
-        document.getElementById('loading').classList.add('hidden');
-        setStatus('Parcel loaded — select a tool to begin sketching.',true);
-      }).catch(err=>{
-        console.error(err);
-        document.getElementById('loading').classList.add('hidden');
-        setStatus('Error loading parcel.',false);
+```
+  function captureAndOpen() {
+    const mapScale = view.scale || 2400;
+    const orig = applyPrintTextStyles();
+    view.takeScreenshot({ format:'png', quality:100, width:2200, height:1500 })
+      .then(r => openPrintWindow(r.dataUrl, mapScale))
+      .catch(err => { console.error(err); setStatus('Screenshot failed.', false); })
+      .finally(() => {
+        restoreTextStyles(orig);
+        if (prePrintViewpoint) view.goTo(prePrintViewpoint, { duration:0 }).catch(() => {});
       });
-    });
+  }
+
+  if (!selectedParcelGeometry || !selectedParcelGeometry.extent) { setTimeout(captureAndOpen, 250); return; }
+  const ext = selectedParcelGeometry.extent.expand(1.03);
+  try { view.resize(); } catch (e) {}
+  setTimeout(() => {
+    view.goTo(ext, { duration:0 }).then(() => {
+      const wait = () => { if (!view.updating && view.stationary) setTimeout(captureAndOpen, 250); else requestAnimationFrame(wait); };
+      wait();
+    }).catch(() => setTimeout(captureAndOpen, 300));
+  }, 150);
+};
+
+// ── Map ready / parcel load ───────────────────────────────
+view.when(() => {
+  refreshSnapSources();
+  setStatus('Map initialized',true);
+
+  // Sync active basemap button to config
+  const initBtn = document.getElementById('bm-'+cfg.map.basemap);
+  if (initBtn) {
+    document.querySelectorAll('.bm-btn').forEach(b=>b.classList.remove('active'));
+    initBtn.classList.add('active');
+  }
+
+  if (!geoParam) {
+    document.getElementById('loading').classList.add('hidden');
+    setStatus('No parcel selected. Return to the portal and choose a parcel.',false);
+    return;
+  }
+  setStatus('Querying parcel '+geoParam+'...');
+
+  parcelLayer.queryFeatures({
+    where: pf.parcelNumber+" = '"+geoParam.replace(/'/g,"''")+"'",
+    outFields:['*'], returnGeometry:true
+  }).then(result=>{
+    if (!result.features||!result.features.length) {
+      document.getElementById('loading').classList.add('hidden');
+      setStatus('Parcel not found.',false); return;
+    }
+    const feature=result.features[0], attrs=feature.attributes;
+    selectedParcelGeometry=feature.geometry;
+    currentParcelAttrs=attrs;
+    populateInfoPanel(attrs);
+
+    highlightLayer.add(new Graphic({geometry:selectedParcelGeometry,symbol:{
+      type:'simple-fill',color:[255,215,0,0.08],
+      outline:{type:'simple-line',color:[230,184,0,1],width:3}
+    }}));
+
+    const addr=addrParam||attrs[pf.siteAddress]||'Address not on file';
+    const owner=ownParam||attrs[pf.ownerName]||'';
+    document.getElementById('pb-addr').textContent  = addr;
+    document.getElementById('pb-owner').textContent = owner?'Owner: '+owner:'';
+    document.getElementById('pb-geo').textContent   = 'Parcel: '+geoParam;
+    document.getElementById('parcel-badge').style.display='block';
+    refreshSnapSources();
+    return view.goTo(selectedParcelGeometry.extent.expand(1.18),{duration:800});
+  }).then(()=>{
+    document.getElementById('loading').classList.add('hidden');
+    setStatus('Parcel loaded — select a tool to begin sketching.',true);
+  }).catch(err=>{
+    console.error(err);
+    document.getElementById('loading').classList.add('hidden');
+    setStatus('Error loading parcel.',false);
   });
+});
+```
+
+});
 })();
 </script>
+
 </body>
 </html>
